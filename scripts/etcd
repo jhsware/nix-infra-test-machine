@@ -1,0 +1,65 @@
+#!/usr/bin/env bash
+# source $ENV
+set -e
+ETCD_HOST=etcd001
+ETCD_IP=$(hcloud server ip $ETCD_HOST)
+PREFIX=/cluster
+CMD=get
+
+if [[ "$@" == "" ]]; then
+  cat <<EOF
+
+Usage: $0 --etcd=<etcd-host> [<command>] --prefix=<filter-prefix>
+
+  --target=<etcd-host>  The hostname of the etcd server (default: etcd001)
+  --prefix=<filter-prefix>  The prefix to filter the keys on (default: /cluster)
+
+  <command>  The command to run on the target server (default: get):
+    remove   Remove the key from the etcd server
+EOF
+exit 0
+fi
+
+for i in "$@"; do
+  case $i in
+    --target=*)
+    ETCD_HOST="${i#*=}"
+    shift
+    ;;
+    --prefix=*)
+    PREFIX="${i#*=}"
+    shift
+    ;;
+    --no-status)
+    STATUS=no
+    shift
+    ;;
+    *)
+      if [[ "get remove" == *"${i}"* ]]; then
+        CMD="${i}"
+        shift
+      else
+        REST="${i}"
+      fi
+    ;;
+  esac
+done
+
+if [ "$CMD" == "get" ]; then
+  EXEC_SCRIPT="etcdctl --endpoints=https://$ETCD_IP:2379 get --prefix $PREFIX$REST"
+fi
+
+if [ "$CMD" == "remove" ]; then
+  EXEC_SCRIPT="etcdctl --endpoints=https://$ETCD_IP:2379 del --prefix $PREFIX$REST"
+fi
+
+# ssh -i ~/.ssh/deis root@$(hcloud server ip $1) "bash -s " <<EOF
+ssh -i ~/.ssh/deis root@$ETCD_IP "bash -s " <<EOF
+export ETCDCTL_DIAL_TIMEOUT=3s
+export ETCDCTL_CACERT=/root/certs/ca-chain.cert.pem
+export ETCDCTL_CERT=/root/certs/$ETCD_HOST-client-tls.cert.pem
+export ETCDCTL_KEY=/root/certs/$ETCD_HOST-client-tls.key.pem
+export ETCDCTL_API=3
+# Action to run
+$EXEC_SCRIPT
+EOF

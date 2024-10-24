@@ -1,0 +1,38 @@
+#!/usr/bin/env bash
+# source $ENV
+if [[ "$@" == "" ]]; then
+  cat <<EOF
+
+Usage: $0 --target=<target> <command>
+
+<target> can be a comma separated list of hostnames
+
+If you only have a single target, you can omit the --target flag
+EOF
+exit 0
+fi
+
+for i in "$@"; do
+  case $i in
+    --target=*)
+    TARGET="${i#*=}"
+    shift
+    ;;
+    *)
+    if [ -z "$TARGET" ]; then
+      TARGET="$1"
+      shift
+    fi
+    REST="$@"
+    ;;
+  esac
+done
+
+
+_ifs=$IFS; IFS=','; read -ra HOSTS <<< "$TARGET"; IFS=$_ifs
+for host in ${HOSTS[*]}; do
+  HOST_IP=$(hcloud server ip $host)
+  ssh -i ~/.ssh/deis root@$HOST_IP "bash -s " <<EOF
+$REST
+EOF
+done
