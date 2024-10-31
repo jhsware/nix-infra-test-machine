@@ -20,7 +20,8 @@
   config.infrastructure.app-mongodb-pod = {
     enable = true;
     bindToIp = "[%%localhost.overlayIp%%]";
-    mongodbConnectionString = "mongodb://[%%service001.overlayIp%%]:27017,[%%service002.overlayIp%%]:27017,[%%service003.overlayIp%%]:27017/test?replicaSet=rs0&connectTimeoutMS=1000";
+    # mongodbConnectionString = "mongodb://[%%service001.overlayIp%%]:27017,[%%service002.overlayIp%%]:27017,[%%service003.overlayIp%%]:27017/test?replicaSet=rs0&connectTimeoutMS=1000";
+    mongodbConnectionString = "mongodb://[%%service001.overlayIp%%]:27017/test?connectTimeoutMS=1000";
   };
 
   config.networking.firewall.interfaces."flannel-wg".allowedTCPPorts = [ 11211 11311 ];
