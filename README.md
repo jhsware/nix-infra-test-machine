@@ -2,38 +2,15 @@
 This is a micro cluster setup for testing nix-infra. It is intended to allow you to try out nix-infra with minimal configuration. All you need is a Hetzner account and some super basic configuration.
 
 
+1. Download (nix-infra)[https://github.com/jhsware/nix-infra/releases] and add it to your path
 
-Copy .env.in to .env and edit it:
-- add path to your ssh-key -- to access the cluster
-- add Hetzner management token -- to provision nodes
-- chose some passwords for your local certificate authority
-- add an e-mail for letsencrypt
+2. Copy .env.in to .env and edit it.
 
-In the folder `openssl/` you should edit both files:
-- Edit section "# Optionally, specify some defaults."
+3. Download the (test script)[https://github.com/jhsware/nix-infra/blob/main/scripts/test-nix-infra-with-apps.sh]
 
-Now you simply run the following scripts:
-```sh
-# Initialise you local cluster configuration repo
-$ scripts/create.sh
-# Configure the local container registry
-$ scripts/deploy.sh registry001
-# Publish your images to the registry
-$ scripts/publish app_images/app-pod.tar.gz registry001
-$ scripts/publish app_images/app-mongodb-pod.tar.gz registry001
-# Deploy apps to your cluster
-$ scripts/helpers/deploy.sh service001 worker001
-```
+4. Run the downloaded script with your .env file as passed parameter
 
-Now you have two choices, either you run commands on ingress node to test your app...
-```sh
-$ scripts/cmd ingress001 "curl -s http://127.0.0.1:11211/ping"
-$ scripts/cmd ingress001 "curl -s http://127.0.0.1:11311/ping"
-```
-...or you point a subdomain (CNAME) to the IP of the ingress node and configure `nodes/ingress001.nix` appropriately.
-
-TODO: fix the ssh key path (~/.ssh/deis)
-TODO: Read stuff from .env-file
+If you have set up .env properly, the script will provision, configure and deploy your cluster. It will then run some tests to check that the it is working properly and finish by tearing down the cluster. Copy and modify the script to create your own cluster.
 
 ## Node Types
 
@@ -128,3 +105,28 @@ To securely provide secrets to your application, store them using the CLI `secre
 
 The secret will be encrypted in your local cluster configuration directory. When deploying an application, the CLI will pass any required secrets to the target and store it as a systemd credential. Systemd credentials are automatically encrypted/decrypted on demand.
 
+## To be fixed
+Note: scripts/* contains convenience scripts but are currently not usable.
+
+Now you simply run the following scripts:
+```sh
+# Initialise you local cluster configuration repo
+$ scripts/create.sh
+# Configure the local container registry
+$ scripts/deploy.sh registry001
+# Publish your images to the registry
+$ scripts/publish app_images/app-pod.tar.gz registry001
+$ scripts/publish app_images/app-mongodb-pod.tar.gz registry001
+# Deploy apps to your cluster
+$ scripts/helpers/deploy.sh service001 worker001
+```
+
+Now you have two choices, either you run commands on ingress node to test your app...
+```sh
+$ scripts/cmd ingress001 "curl -s http://127.0.0.1:11211/ping"
+$ scripts/cmd ingress001 "curl -s http://127.0.0.1:11311/ping"
+```
+...or you point a subdomain (CNAME) to the IP of the ingress node and configure `nodes/ingress001.nix` appropriately.
+
+TODO: fix the ssh key path (~/.ssh/deis)
+TODO: Read stuff from .env-file
