@@ -9,7 +9,15 @@ This is a micro cluster setup for testing nix-infra. It is intended to allow you
 $ sh <(curl -L https://raw.githubusercontent.com/jhsware/nix-infra-test/refs/heads/main/scripts/get-test.sh)
 ```
 
-Once you have set up .env properly, the downloaded script will provision, configure and deploy your cluster. It will then run some tests to check that it is working properly and finish by tearing down the cluster. Copy and modify the script to create your own cluster.
+3. Edit the .env in the created folder
+
+4. Run the test script
+
+```sh
+$ test-nix-infra-with-apps.sh --env=.env
+```
+
+Once you have set up .env properly, the downloaded script will provision, configure and deploy your cluster. It will then run some tests to check that it is working properly and finish by tearing down the cluster. Copy and modify the script to create your own experimental cluster.
 
 ## Node Types
 
