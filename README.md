@@ -1,16 +1,15 @@
 # nix-infra-test
 This is a micro cluster setup for testing nix-infra. It is intended to allow you to try out nix-infra with minimal configuration. All you need is a Hetzner account and some super basic configuration.
 
+1. Download [nix-infra](https://github.com/jhsware/nix-infra/releases) and add it to your path
 
-1. Download (nix-infra)[https://github.com/jhsware/nix-infra/releases] and add it to your path
+2. Run [this script](https://github.com/jhsware/nix-infra-test/blob/main/scripts/get-test.sh) in the terminal to download test scripts
 
-2. Copy .env.in to .env and edit it.
+```sh
+$ sh <(curl -L https://raw.githubusercontent.com/jhsware/nix-infra-test/refs/heads/main/scripts/get-test.sh)
+```
 
-3. Download the (test script)[https://github.com/jhsware/nix-infra/blob/main/scripts/test-nix-infra-with-apps.sh]
-
-4. Run the downloaded script with your .env file as passed parameter
-
-If you have set up .env properly, the script will provision, configure and deploy your cluster. It will then run some tests to check that the it is working properly and finish by tearing down the cluster. Copy and modify the script to create your own cluster.
+Once you have set up .env properly, the downloaded script will provision, configure and deploy your cluster. It will then run some tests to check that it is working properly and finish by tearing down the cluster. Copy and modify the script to create your own cluster.
 
 ## Node Types
 

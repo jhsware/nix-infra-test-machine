@@ -16,3 +16,5 @@ else
   echo "neither curl nor wget is installed. Please install and try again."
   exit 1
 fi
+
+chmod 755 $name/test-nix-infra-with-apps.sh
