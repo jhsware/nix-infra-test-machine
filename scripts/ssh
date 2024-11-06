@@ -1,6 +1,0 @@
-#!/usr/bin/env bash
-# ENV=$1
-# TARGET=$2
-# source $ENV
-# echo ssh -i ~/.ssh/deis root@$(hcloud server ip $TARGET)
-ssh -i ~/.ssh/deis root@$(hcloud server ip $1)
