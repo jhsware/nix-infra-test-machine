@@ -31,9 +31,9 @@ test-nix-infra-with-apps.sh --no-teardown
 Useful commands to explore the running test cluster (check the bash script for more):
 
 ```sh
-nix-infra-test/test-nix-infra-with-apps.sh etcd "/cluster"
-nix-infra-test/test-nix-infra-with-apps.sh cmd --target=ingress001 "uptime"
-nix-infra-test/test-nix-infra-with-apps.sh ssh ingress001
+test-nix-infra-with-apps.sh etcd "/cluster"
+test-nix-infra-with-apps.sh cmd --target=ingress001 "uptime"
+test-nix-infra-with-apps.sh ssh ingress001
 ```
 
 To tear down the cluster:
