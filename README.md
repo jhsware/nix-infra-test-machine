@@ -1,7 +1,7 @@
 # nix-infra-test
 This is a micro cluster setup for testing nix-infra. It is intended to allow you to try out nix-infra with minimal configuration. All you need is a Hetzner account and some super basic configuration.
 
-1. Download [nix-infra](https://github.com/jhsware/nix-infra/releases) and add it to your path
+1. Download [nix-infra](https://github.com/jhsware/nix-infra/releases) and install it
 
 2. Run [this script](https://github.com/jhsware/nix-infra-test/blob/main/scripts/get-test.sh) in the terminal to download test scripts
 
