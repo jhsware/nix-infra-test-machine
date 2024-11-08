@@ -20,6 +20,28 @@ test-nix-infra-with-apps.sh --env=.env
 
 Once you have set up .env properly, the downloaded script will provision, configure and deploy your cluster. It will then run some tests to check that it is working properly and finish by tearing down the cluster. Copy and modify the script to create your own experimental cluster.
 
+## Test Script Options
+
+To build without immediately tearing down the cluster:
+
+```sh
+test-nix-infra-with-apps.sh --no-teardown
+```
+
+Useful commands to explore the running test cluster (check the bash script for more):
+
+```sh
+test-nix-infra-with-apps.sh etcd "/cluster"
+test-nix-infra-with-apps.sh cmd --target=ingress001 "uptime"
+test-nix-infra-with-apps.sh ssh ingress001
+```
+
+To tear down the cluster:
+
+```sh
+test-nix-infra-with-apps.sh teardown
+```
+
 ## Node Types
 
 ```mermaid
@@ -112,29 +134,3 @@ The image will be uploaded to the private registry and is then available for dep
 To securely provide secrets to your application, store them using the CLI `secrets` command or as an output from a CLI `action`command using the option `--store-as-secret=[name]`.
 
 The secret will be encrypted in your local cluster configuration directory. When deploying an application, the CLI will pass any required secrets to the target and store it as a systemd credential. Systemd credentials are automatically encrypted/decrypted on demand.
-
-## To be fixed
-Note: scripts/* contains convenience scripts but are currently not usable.
-
-Now you simply run the following scripts:
-```sh
-# Initialise you local cluster configuration repo
-$ scripts/create.sh
-# Configure the local container registry
-$ scripts/deploy.sh registry001
-# Publish your images to the registry
-$ scripts/publish app_images/app-pod.tar.gz registry001
-$ scripts/publish app_images/app-mongodb-pod.tar.gz registry001
-# Deploy apps to your cluster
-$ scripts/helpers/deploy.sh service001 worker001
-```
-
-Now you have two choices, either you run commands on ingress node to test your app...
-```sh
-$ scripts/cmd ingress001 "curl -s http://127.0.0.1:11211/ping"
-$ scripts/cmd ingress001 "curl -s http://127.0.0.1:11311/ping"
-```
-...or you point a subdomain (CNAME) to the IP of the ingress node and configure `nodes/ingress001.nix` appropriately.
-
-TODO: fix the ssh key path (~/.ssh/deis)
-TODO: Read stuff from .env-file
