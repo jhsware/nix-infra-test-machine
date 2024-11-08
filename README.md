@@ -6,15 +6,16 @@ This is a micro cluster setup for testing nix-infra. It is intended to allow you
 2. Run [this script](https://github.com/jhsware/nix-infra-test/blob/main/scripts/get-test.sh) in the terminal to download test scripts
 
 ```sh
-$ sh <(curl -L https://raw.githubusercontent.com/jhsware/nix-infra-test/refs/heads/main/scripts/get-test.sh)
+sh <(curl -L https://raw.githubusercontent.com/jhsware/nix-infra-test/refs/heads/main/scripts/get-test.sh)
 ```
+3. Get an API-key for an empty Hetzner Cloud project
 
-3. Edit the .env in the created folder
+4. Edit the .env in the created folder
 
-4. Run the test script
+5. Run the test script
 
 ```sh
-$ test-nix-infra-with-apps.sh --env=.env
+test-nix-infra-with-apps.sh --env=.env
 ```
 
 Once you have set up .env properly, the downloaded script will provision, configure and deploy your cluster. It will then run some tests to check that it is working properly and finish by tearing down the cluster. Copy and modify the script to create your own experimental cluster.
