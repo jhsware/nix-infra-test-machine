@@ -3,7 +3,7 @@ This is a micro cluster setup for testing nix-infra. It is intended to allow you
 
 1. Download [nix-infra](https://github.com/jhsware/nix-infra/releases) and install it
 
-2. Run [this script](https://github.com/jhsware/nix-infra-test/blob/main/scripts/get-test.sh) in the terminal to download test scripts
+2. Run [this script](https://github.com/jhsware/nix-infra-test/blob/main/scripts/get-test.sh) in the terminal to download test scripts:
 
 ```sh
 sh <(curl -L https://raw.githubusercontent.com/jhsware/nix-infra-test/refs/heads/main/scripts/get-test.sh)
@@ -15,7 +15,7 @@ sh <(curl -L https://raw.githubusercontent.com/jhsware/nix-infra-test/refs/heads
 5. Run the test script
 
 ```sh
-test-nix-infra-with-apps.sh --env=.env
+nix-infra-test/test-nix-infra-with-apps.sh --env=nix-infra-test/.env
 ```
 
 Once you have set up .env properly, the downloaded script will provision, configure and deploy your cluster. It will then run some tests to check that it is working properly and finish by tearing down the cluster. Copy and modify the script to create your own experimental cluster.
@@ -31,9 +31,9 @@ test-nix-infra-with-apps.sh --no-teardown
 Useful commands to explore the running test cluster (check the bash script for more):
 
 ```sh
-test-nix-infra-with-apps.sh etcd "/cluster"
-test-nix-infra-with-apps.sh cmd --target=ingress001 "uptime"
-test-nix-infra-with-apps.sh ssh ingress001
+nix-infra-test/test-nix-infra-with-apps.sh etcd "/cluster"
+nix-infra-test/test-nix-infra-with-apps.sh cmd --target=ingress001 "uptime"
+nix-infra-test/test-nix-infra-with-apps.sh ssh ingress001
 ```
 
 To tear down the cluster:
