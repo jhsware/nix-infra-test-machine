@@ -25,21 +25,21 @@ Once you have set up .env properly, the downloaded script will provision, config
 To build without immediately tearing down the cluster:
 
 ```sh
-test-nix-infra-with-apps.sh --no-teardown
+test-nix-infra-with-apps.sh --no-teardown --env=nix-infra-test/.env
 ```
 
 Useful commands to explore the running test cluster (check the bash script for more):
 
 ```sh
-test-nix-infra-with-apps.sh etcd "/cluster"
-test-nix-infra-with-apps.sh cmd --target=ingress001 "uptime"
-test-nix-infra-with-apps.sh ssh ingress001
+test-nix-infra-with-apps.sh etcd "/cluster" --env=nix-infra-test/.env
+test-nix-infra-with-apps.sh cmd --target=ingress001 "uptime" --env=nix-infra-test/.env
+test-nix-infra-with-apps.sh ssh ingress001 --env=nix-infra-test/.env
 ```
 
 To tear down the cluster:
 
 ```sh
-test-nix-infra-with-apps.sh teardown
+test-nix-infra-with-apps.sh teardown --env=nix-infra-test/.env
 ```
 
 ## Node Types
