@@ -16,9 +16,9 @@ fetch() {
   chmod $1 $3
 }
 
-fetch 755 https://raw.githubusercontent.com/jhsware/nix-infra/refs/heads/main/scripts/test-nix-infra-with-apps.sh $name/test-nix-infra-with-apps.sh
+fetch 755 https://raw.githubusercontent.com/jhsware/nix-infra/refs/heads/main/scripts/test-nix-infra-machine.sh $name/test-nix-infra-machine.sh
 fetch 644 https://raw.githubusercontent.com/jhsware/nix-infra/refs/heads/main/scripts/check.sh $name/check.sh
-fetch 644 https://raw.githubusercontent.com/jhsware/nix-infra-test/refs/heads/main/.env.in $name/.env
+fetch 644 https://raw.githubusercontent.com/jhsware/nix-infra-machine/refs/heads/main/.env.in $name/.env
 echo "Done!"
 echo
 echo "Make sure you have installed nix-infra, then:"
