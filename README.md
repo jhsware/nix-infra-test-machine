@@ -42,7 +42,7 @@ test-nix-infra-machine.sh teardown --env=nix-infra-test/.env
 ```
 
 ## Deploying an Application
-Each node in the cluster has it's own configuration in the `nodes/` folder.
+Each node has it's own configuration in the `nodes/` folder.
 
 In this configuration you can configure what apps to run on that node and how you want them to be configured.
 
