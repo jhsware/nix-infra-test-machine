@@ -1,6 +1,6 @@
 #!/usr/bin/env sh
 read -p "Enter folder name [nix-infra-test]: " name
-name=${name:-nix-infra-test}
+name=${name:-test-nix-infra-machine}
 
 mkdir -p $name
 
@@ -23,5 +23,5 @@ echo "Done!"
 echo
 echo "Make sure you have installed nix-infra, then:"
 echo "1. Edit $name/.env"
-echo "2. Run $name/test-nix-infra-with-apps.sh --env=$name/.env"
+echo "2. Run $name/test-nix-infra-machine.sh --env=$name/.env"
 echo

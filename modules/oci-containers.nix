@@ -4,12 +4,7 @@ with lib;
 let
   cfg = config.infrastructure.oci-containers;
   proxy_env = config.networking.proxy.envVars;
-  
-  # This is used to register the app with the etcd cluster
   hostName = config.networking.hostName;
-  etcdClusterNodes = lib.concatMapStringsSep "," (n: "https://${n.ip}:2379") config.infrastructure.confd.etcdCluster;
-  etcdctlEnvVars = config.infrastructure.confd.etcdctlEnvVars;
-
   defaultBackend = options.infrastructure.oci-containers.backend.default;
 
   containerOptions =
@@ -24,46 +19,6 @@ let
             type = with types; str;
             description = "Name of the container.";
             example = "hello-world";
-          };
-
-          serviceGroup = mkOption {
-            type = with types; enum [ "frontends" "backends" "services" ];
-            description = "Service group of the container.";
-            example = "frontends";
-          };
-
-          protocol = mkOption {
-            type = with types; str;
-            description = "URI protocol to use when accessing this app.";
-            default = "http";
-          };
-
-          port = mkOption {
-            type = with types; nullOr int;
-            default = null;
-            description = "Main external port the container exposes to the overlay network. NOTE: Map the internal port using 'ports'-option.";
-            example = 8080;
-          };
-
-          auxPorts = mkOption {
-            type = with types; listOf int;
-            default = [];
-            description = "Auxiliary external ports the container exposes to the overlay network. NOTE: Map the internal port using 'ports'-option.";
-            example = [ 2345 ];
-          };
-
-          path = mkOption {
-            type = with types; str;
-            default = "";
-            description = "Root path the app answers to (optional).";
-            example = "/hello-world";
-          };
-
-          envPrefix = mkOption {
-            type = with types; str;
-            default = null;
-            description = "Prefix for environment variables.";
-            example = "HELLO_WORLD";
           };
         };
 
@@ -351,24 +306,6 @@ let
 
     dependsOn = map (x: "${cfg.backend}-${x}.service") container.dependsOn;
     escapedName = escapeShellArg name;
-    preStartScript = pkgs.writeShellScript "pre-start" ''
-      # Register service before systemctl started
-      ${etcdctlEnvVars}
-      ${pkgs.etcd}/bin/etcdctl --endpoints=${etcdClusterNodes} \
-      put /cluster/${container.app.serviceGroup}/${container.app.name}/meta_data '${builtins.toJSON serviceMetaData}'
-    '';
-    postStartScript = pkgs.writeShellScript "post-start" ''
-      # Register instance on systemctl started
-      ${etcdctlEnvVars}
-      ${pkgs.etcd}/bin/etcdctl --endpoints=${etcdClusterNodes} \
-      put /cluster/${container.app.serviceGroup}/${container.app.name}/instances/${hostName} '${builtins.toJSON instanceEntry}'
-    '';
-    preStopScript = pkgs.writeShellScript "pre-stop" ''
-      # Remove instance on systemctl stopped
-      ${etcdctlEnvVars}
-      ${pkgs.etcd}/bin/etcdctl --endpoints=${etcdClusterNodes} del /cluster/${container.app.serviceGroup}/${container.app.name}/instances/${hostName}
-    '';
-
   in {
     wantedBy = [] ++ optional (container.autoStart) "multi-user.target";
     wants = lib.optional (container.imageFile == null)  "network-online.target";

@@ -3,10 +3,10 @@ This is a standalone setup for testing nix-infra. It is intended to allow you to
 
 1. Download [nix-infra](https://github.com/jhsware/nix-infra/releases) and install it
 
-2. Run [this script](https://github.com/jhsware/nix-infra-test-machine/blob/main/scripts/get-test.sh) in the terminal to download test scripts:
+2. Run [this script](https://github.com/jhsware/nix-infra-machine/blob/main/scripts/get-test.sh) in the terminal to download test scripts:
 
 ```sh
-sh <(curl -L https://raw.githubusercontent.com/jhsware/nix-infra-test-machine/refs/heads/main/scripts/get-test.sh)
+sh <(curl -L https://raw.githubusercontent.com/jhsware/nix-infra-machine/refs/heads/main/scripts/get-test.sh)
 ```
 3. Get an API-key for an empty Hetzner Cloud project
 
@@ -15,7 +15,7 @@ sh <(curl -L https://raw.githubusercontent.com/jhsware/nix-infra-test-machine/re
 5. Run the test script
 
 ```sh
-nix-infra-test-machine/test-nix-infra-machine.sh --env=nix-infra-test/.env
+test-nix-infra-machine/test-nix-infra-machine.sh --env=nix-infra-machine/.env
 ```
 
 Once you have set up .env properly, the downloaded script will provision, configure and deploy your cluster. It will then run some tests to check that it is working properly and finish by tearing down the cluster. Copy and modify the script to create your own experimental cluster.
@@ -25,20 +25,20 @@ Once you have set up .env properly, the downloaded script will provision, config
 To build without immediately tearing down the cluster:
 
 ```sh
-test-nix-infra-machine.sh --no-teardown --env=nix-infra-test/.env
+test-nix-infra-machine.sh --no-teardown --env=nix-infra-machine/.env
 ```
 
 Useful commands to explore the running test cluster (check the bash script for more):
 
 ```sh
-test-nix-infra-machine.sh cmd --target=node001 "uptime" --env=nix-infra-test/.env
-test-nix-infra-machine.sh ssh node001 --env=nix-infra-test/.env
+test-nix-infra-machine.sh cmd --target=node001 "uptime" --env=nix-infra-machine/.env
+test-nix-infra-machine.sh ssh node001 --env=nix-infra-machine/.env
 ```
 
 To tear down the cluster:
 
 ```sh
-test-nix-infra-machine.sh teardown --env=nix-infra-test/.env
+test-nix-infra-machine.sh teardown --env=nix-infra-machine/.env
 ```
 
 ## Deploying an Application
