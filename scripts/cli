@@ -14,13 +14,17 @@ if command -v nix-infra >/dev/null 2>&1; then
     exit 1
 fi
 
+if command -v nix-shell >/dev/null 2>&1; then
+    echo "The 'nix-shell' tool is recommended to make sure you get a proper environment. Use the Determinate Systems Nix installer to install it https://zero-to-nix.com/concepts/nix-installer/"
+fi
+
 if command -v hcloud >/dev/null 2>&1; then
-    echo "The 'hcloud' cli is required for this script to work. Create a temporary shell with 'nix-shell -p hcloud' or install via homebrew 'brew install hcloud'"
+    echo "The 'hcloud' cli is required for this script to work. Run 'nix-shell' in this project directory to make sure you get the right version"
     exit 1
 fi
 
 if command -v ssh >/dev/null 2>&1; then
-    echo "The 'ssh' tool is required for this script to work. Create a temporary shell with 'nix-shell -p openssh' or install via homebrew 'brew install openssh'"
+    echo "The 'ssh' tool is required for this script to work. Run 'nix-shell' in this project directory to install it"
     exit 1
 fi
 
