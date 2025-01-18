@@ -7,8 +7,6 @@ let
   };
 in {
   config = {
-    infrastructure.podman.dockerRegistryHostPort = "[%%registry001.overlayIp%%]:5000";
-
     # https://nixos.wiki/wiki/Nginx
     # https://search.nixos.org/options?channel=24.05&from=0&size=30&sort=relevance&type=packages&query=services.nginx
     services.nginx.enable = true;
