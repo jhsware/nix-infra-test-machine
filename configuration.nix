@@ -7,6 +7,7 @@ let
 
   clusterNode = lib.fileset.toList (lib.fileset.maybeMissing ./cluster_node.nix);
   controlNode = lib.fileset.toList (lib.fileset.maybeMissing ./control_node.nix);
+  standaloneMachine = lib.fileset.toList (lib.fileset.maybeMissing ./standalone_machine.nix);
   nodeConfig = lib.fileset.toList (lib.fileset.maybeMissing ./[%%nodeName%%].nix);
   modules = lib.fileset.toList (lib.fileset.maybeMissing ./modules/default.nix);
   appModules = lib.fileset.toList (lib.fileset.maybeMissing ./app_modules/default.nix);
@@ -15,7 +16,7 @@ in
   imports = [
     ./hardware-configuration.nix
     ./networking.nix # generated at runtime by nixos-infect 
-  ] ++ clusterNode ++ controlNode ++ nodeConfig ++ modules ++ appModules;
+  ] ++ clusterNode ++ controlNode ++ nodeConfig ++ standaloneMachine ++ modules ++ appModules;
 
   boot.tmp.cleanOnBoot = true;
   zramSwap.enable = true;
