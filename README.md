@@ -58,7 +58,7 @@ scripts/cli cmd --env=.env --target=node001 ls -alh
 scripts/cli destroy --env=.env --target=node001
 ```
 
-To create new more machines you add their configurations in the `nodes/` sub-directory and then run the create command above.
+To create more machines you add their configurations in the `nodes/` sub-directory and then run the create command above.
 
 ## Test Script Options
 
