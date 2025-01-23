@@ -55,9 +55,11 @@ The secret will be encrypted in your local cluster configuration directory. When
 
 ## Typical workflow
 ```sh
+# in your project diretory
 cp .env.in .env
 scripts/cli init --env=.env
 scripts/cli create --env=.env node001
 scripts/cli ssh --env=.env node001
 scripts/cli cmd --env=.env --target=node001 ls -alh
+scripts/cli destroy --env=.env --target=node001
 ```
