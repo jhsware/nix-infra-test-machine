@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
+set -a
 SCRIPT_DIR=$(dirname $0)
-WORK_DIR=${WORK_DIR:-"../"}
+WORK_DIR=${WORK_DIR:-"$(readlink -f $SCRIPT_DIR/..)"}
 NIX_INFRA=${NIX_INFRA:-"nix-infra"}
 NIXOS_VERSION=${NIXOS_VERSION:-"24.11"}
 SSH_KEY=${SSH_KEY:-"nixinfra-machine"}
@@ -8,22 +9,23 @@ SSH_EMAIL=${SSH_EMAIL:-"your-email@example.com"}
 SECRETS_PWD=${SECRETS_PWD:-"my_secrets_password"}
 LOCATION=${LOCATION:-"hel1"}
 MACHINE_TYPE=${MACHINE_TYPE:-"cpx21"}
+set +a
 
-if command -v nix-infra >/dev/null 2>&1; then
+if ! command -v nix-infra >/dev/null 2>&1; then
     echo "The 'nix-infra' cli is required for this script to work. Visit https://github.com/jhsware/nix-infra for instructions on installation"
     exit 1
 fi
 
-if command -v nix-shell >/dev/null 2>&1; then
+if ! command -v nix-shell >/dev/null 2>&1; then
     echo "The 'nix-shell' tool is recommended to make sure you get a proper environment. Use the Determinate Systems Nix installer to install it https://zero-to-nix.com/concepts/nix-installer/"
 fi
 
-if command -v hcloud >/dev/null 2>&1; then
+if ! command -v hcloud >/dev/null 2>&1; then
     echo "The 'hcloud' cli is required for this script to work. Run 'nix-shell' in this project directory to make sure you get the right version"
     exit 1
 fi
 
-if command -v ssh >/dev/null 2>&1; then
+if ! command -v ssh >/dev/null 2>&1; then
     echo "The 'ssh' tool is required for this script to work. Run 'nix-shell' in this project directory to install it"
     exit 1
 fi
@@ -59,7 +61,9 @@ done
 
 # Read then environments file if provided
 if [ "$ENV" != "" ]; then
+  set -a
   source $ENV
+  set +a
 fi
 
 # An Hetzner Cloud token is required
@@ -101,8 +105,8 @@ fi
 if [ "$CMD" = "create" ]; then
   _start=`date +%s`
 
-  if [ -z "$TARGET" ] || [ -z "$REST" ]; then
-    echo "Usage: $0 create --env=$ENV --target=[node] [optional commands go here]"
+  if [ -z "$REST" ]; then
+    echo "Usage: $0 create --env=$ENV [node1 node2 ...]"
     exit 1
   fi
 
@@ -117,18 +121,18 @@ if [ "$CMD" = "create" ]; then
       --ssh-key=$SSH_KEY \
       --location="$LOCATION" \
       --machine-type="$MACHINE_TYPE" \
-      --node-names="$TARGET"
+      --node-names="$REST"
   cleanupOnFail $? "ERROR: Provisioning failed! Cleaning up..."
 
   _provision=`date +%s`
 
   $NIX_INFRA init-machine -d $WORK_DIR --batch --env="$WORK_DIR/.env" \
       --nixos-version=$NIXOS_VERSION \
-      --target="$TARGET" \
+      --target="$REST" \
       --node-module="node_types/standalone_machine.nix"
 
   # TODO: Is this really needed or can init-machine to rebuild?
-  $NIX_INFRA cmd -d $WORK_DIR --target="$TARGET" "nixos-rebuild switch --fast"
+  $NIX_INFRA cmd -d $WORK_DIR --target="$REST" "nixos-rebuild switch --fast"
 
   _init_nodes=`date +%s`
 
@@ -136,8 +140,8 @@ if [ "$CMD" = "create" ]; then
   echo "INSTALLING APPS..."
 
   $NIX_INFRA deploy-apps -d $WORK_DIR --batch --env="$WORK_DIR/.env" \
-    --target="$TARGET" --no-overlay-network
-  $NIX_INFRA cmd -d $WORK_DIR --target="$TARGET" "nixos-rebuild switch --fast"
+    --target="$REST" --no-overlay-network
+  $NIX_INFRA cmd -d $WORK_DIR --target="$REST" "nixos-rebuild switch --fast"
   
   echo "...INSTALLING APPS"
 
