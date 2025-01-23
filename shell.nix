@@ -5,10 +5,9 @@ let
 
   isMacOS = builtins.match ".*-darwin" pkgs.stdenv.hostPlatform.system != null;
 in pkgs.mkShell rec {
-  name = "dart";
+  name = "nix-infra";
 
   buildInputs = with pkgs; [    
-    pkgs.dart
     pkgs.openssl
     # pkgs.hcloud
     hcloud
