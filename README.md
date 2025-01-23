@@ -3,10 +3,12 @@ This is a standalone setup for testing nix-infra. It is intended to allow you to
 
 1. Download [nix-infra](https://github.com/jhsware/nix-infra/releases) and install it
 
-2. Run [this script](https://github.com/jhsware/nix-infra-machine/blob/main/scripts/get-test.sh) in the terminal to download test scripts:
+## Run a fully automated test script
+
+2. Run [this script](https://github.com/jhsware/nix-infra-test-machine/blob/main/scripts/get-test.sh) in the terminal to download test scripts:
 
 ```sh
-sh <(curl -L https://raw.githubusercontent.com/jhsware/nix-infra-machine/refs/heads/main/scripts/get-test.sh)
+sh <(curl -L https://raw.githubusercontent.com/jhsware/nix-infra-test-machine/refs/heads/main/scripts/get-test.sh)
 ```
 3. Get an API-key for an empty Hetzner Cloud project
 
@@ -18,7 +20,45 @@ sh <(curl -L https://raw.githubusercontent.com/jhsware/nix-infra-machine/refs/he
 test-nix-infra-machine/test-nix-infra-machine.sh --env=nix-infra-machine/.env
 ```
 
-Once you have set up .env properly, the downloaded script will provision, configure and deploy your cluster. It will then run some tests to check that it is working properly and finish by tearing down the cluster. Copy and modify the script to create your own experimental cluster.
+Once you have set up .env properly, the downloaded script will provision, configure and deploy your fleet. It will then run some tests to check that it is working properly and finish by tearing down the fleet.
+
+## Create your custom config
+
+2. Clone [this repos](https://github.com/jhsware/nix-infra-test-machine):
+
+```sh
+git clone git@github.com:jhsware/nix-infra-test-machine.git [my-new-repo]
+```
+
+3. Get an API-key for an empty Hetzner Cloud project
+
+4. Edit the .env in the created folder
+
+3. Get an API-key for an empty Hetzner Cloud project
+
+4. Edit the .env in the created folder
+
+```sh
+cp .env.in .env
+nano .env
+```
+
+5. Initialise the repo
+
+```sh
+scripts/cli init --env=.env
+```
+
+6. Work with your fleet
+
+```sh
+scripts/cli create --env=.env node001
+scripts/cli ssh --env=.env node001
+scripts/cli cmd --env=.env --target=node001 ls -alh
+scripts/cli destroy --env=.env --target=node001
+```
+
+To create new more machines you add their configurations in the `nodes/` sub-directory and then run the create command above.
 
 ## Test Script Options
 
@@ -52,14 +92,3 @@ The actual deployment is done using the `deploy-apps` command and specifying the
 To securely provide secrets to your application, store them using the CLI `secrets` command or as an output from a CLI `action`command using the option `--store-as-secret=[name]`.
 
 The secret will be encrypted in your local cluster configuration directory. When deploying an application, the CLI will pass any required secrets to the target and store it as a systemd credential. Systemd credentials are automatically encrypted/decrypted on demand.
-
-## Typical workflow
-```sh
-# in your project diretory
-cp .env.in .env
-scripts/cli init --env=.env
-scripts/cli create --env=.env node001
-scripts/cli ssh --env=.env node001
-scripts/cli cmd --env=.env --target=node001 ls -alh
-scripts/cli destroy --env=.env --target=node001
-```
