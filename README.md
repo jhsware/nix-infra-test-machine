@@ -52,3 +52,12 @@ The actual deployment is done using the `deploy-apps` command and specifying the
 To securely provide secrets to your application, store them using the CLI `secrets` command or as an output from a CLI `action`command using the option `--store-as-secret=[name]`.
 
 The secret will be encrypted in your local cluster configuration directory. When deploying an application, the CLI will pass any required secrets to the target and store it as a systemd credential. Systemd credentials are automatically encrypted/decrypted on demand.
+
+## Typical workflow
+```sh
+cp .env.in .env
+scripts/cli init --env=.env
+scripts/cli create --env=.env node001
+scripts/cli ssh --env=.env node001
+scripts/cli cmd --env=.env --target=node001 ls -alh
+```
