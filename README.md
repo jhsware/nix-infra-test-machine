@@ -56,9 +56,10 @@ scripts/cli create --env=.env node001
 scripts/cli ssh --env=.env node001
 scripts/cli cmd --env=.env --target=node001 ls -alh
 scripts/cli destroy --env=.env --target=node001
+scripts/cli update --env=.env node001
 ```
 
-To create more machines you add their configurations in the `nodes/` sub-directory and then run the create command above.
+To create custom configurationsm add them to the `nodes/` sub-directory and then run the `create`or `update` command above. The custom configuration is optional, if you want to create a fleet of equivalent machines you can add configuration files to `node_types/` and edit the cli script to allow you to select which type to use.
 
 ## Test Script Options
 
