@@ -207,6 +207,11 @@ if [ "$CMD" = "update" ]; then
 fi
 
 if [ "$CMD" = "destroy" ]; then
+  if [ -z "$TARGET" ]; then
+    echo "Usage: $0 destroy --env=$ENV --target=\"[node1 node2 ...]\""
+    exit 1
+  fi
+
   tearDown
   exit 0
 fi
