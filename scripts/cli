@@ -11,26 +11,28 @@ LOCATION=${LOCATION:-"hel1"}
 MACHINE_TYPE=${MACHINE_TYPE:-"cpx21"}
 set +a
 
-if ! command -v nix-infra >/dev/null 2>&1; then
-    echo "The 'nix-infra' cli is required for this script to work. Visit https://github.com/jhsware/nix-infra for instructions on installation"
-    exit 1
-fi
+checkTool() {
+  local tool=$1
+  local info=$2
+  if ! command -v $tool >/dev/null 2>&1; then
+      echo "$2"
+      exit 1
+  fi
+}
 
-if ! command -v nix-shell >/dev/null 2>&1; then
-    echo "The 'nix-shell' tool is recommended to make sure you get a proper environment. Use the Determinate Systems Nix installer to install it https://zero-to-nix.com/concepts/nix-installer/"
-fi
+checkTool nix-infra \
+  "The 'nix-infra' cli is required for this script to work. Visit https://github.com/jhsware/nix-infra for instructions on installation"
 
-if ! command -v hcloud >/dev/null 2>&1; then
-    echo "The 'hcloud' cli is required for this script to work. Run 'nix-shell' in this project directory to make sure you get the right version"
-    exit 1
-fi
+checkTool nix-shell \
+  "The 'nix-shell' tool is recommended to make sure you get a proper environment. Use the Determinate Systems Nix installer to install it https://zero-to-nix.com/concepts/nix-installer/"
 
-if ! command -v ssh >/dev/null 2>&1; then
-    echo "The 'ssh' tool is required for this script to work. Run 'nix-shell' in this project directory to install it"
-    exit 1
-fi
+checkTool hcloud \
+  "The 'hcloud' cli is required for this script to work. Run 'nix-shell' in this project directory to make sure you get the right version"
 
-if [[ "init create destroy update ssh cmd action port-forward" == *"$1"* ]]; then
+checkTool ssh \
+  "The 'ssh' tool is required for this script to work. Run 'nix-shell' in this project directory to install it"
+
+if [[ "init create upgrade rollback destroy update ssh cmd action port-forward" == *"$1"* ]]; then
   CMD="$1"
   shift
 fi
@@ -157,6 +159,33 @@ if [ "$CMD" = "create" ]; then
   printf '= SUM %s\n' $(printTime $_start $_end)
 
   echo "***************** DONE *******************"
+fi
+
+if [ "$CMD" = "upgrade" ]; then
+  if [ -z "$REST" ]; then
+    echo "Usage: $0 upgrade --env=$ENV [node1 node2 ...]"
+    exit 1
+  fi
+  # To perform unsupervised upgrades automatically add the following lines
+  # to your configuration:
+  #
+  # system.autoUpgrade.enable  = true;
+  # system.autoUpgrade.allowReboot  = true;
+  #
+  # The second line allows rebooting on kernel updates.
+
+  $NIX_INFRA cmd -d $WORK_DIR --target="$REST" "nixos-rebuild switch --upgrade"
+  exit 0
+fi
+
+if [ "$CMD" = "rollback" ]; then
+  if [ -z "$REST" ]; then
+    echo "Usage: $0 upgrade --env=$ENV [node1 node2 ...]"
+    exit 1
+  fi
+
+  $NIX_INFRA cmd -d $WORK_DIR --target="$REST" "nixos-rebuild switch --rollback"
+  exit 0
 fi
 
 if [ "$CMD" = "update" ]; then
