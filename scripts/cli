@@ -200,7 +200,7 @@ if [ "$CMD" = "update" ]; then
     --node-module="node_types/standalone_machine.nix" \
     --rebuild
   
-  $NIX_INFRA deploy-apps -d $WORK_DIR --batch --env="$WORK_DIR/.env" \
+  $NIX_INFRA deploy-apps -d $WORK_DIR --no-overlay-network --batch --env="$WORK_DIR/.env" \
     --target="$REST"
   $NIX_INFRA cmd -d $WORK_DIR --target="$REST" "nixos-rebuild switch --fast"
   exit 0
