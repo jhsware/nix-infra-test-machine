@@ -281,7 +281,7 @@ if [ "$CMD" = "create" ]; then
   echo "*** Deploying apps ***"
 
   $NIX_INFRA fleet deploy-apps -d "$WORK_DIR" --batch --env="$WORK_DIR/.env" \
-    --target="$TARGET" --no-overlay-network
+    --target="$TARGET"
   $NIX_INFRA fleet cmd -d "$WORK_DIR" --target="$TARGET" "nixos-rebuild switch --fast"
 
   _end=$(date +%s)
