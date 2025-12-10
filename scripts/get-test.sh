@@ -25,14 +25,13 @@ if [ -e "./$name" ]; then
 fi
 
 git clone -b "$BRANCH" "$REPO" "$name"
-echo "Cloned template repo to $name"
-cd "$name" || exit 1
-cp .env.in .env
+cp "$name/.env.in" "$name/.env"
 
 echo "Done!"
 echo
 echo "Make sure you have installed nix-infra, then:"
-echo "1. Edit .env"
-echo "2. Run __test__/run-tests.sh --env=.env"
 echo
-pwd
+echo "1. cd ./$name"
+echo "2. Edit .env"
+echo "3. Run __test__/run-tests.sh --env=.env"
+echo
