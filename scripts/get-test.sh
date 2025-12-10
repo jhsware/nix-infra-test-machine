@@ -19,8 +19,6 @@ printf "Enter folder name [test-nix-infra-machine]: "
 read -r name
 name=${name:-test-nix-infra-machine}
 
-mkdir -p "$name"
-
 if [ -d "./$name" ]; then
   echo "Folder $name already exists in this directory, aborting."
   exit 1
