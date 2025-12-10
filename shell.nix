@@ -7,7 +7,8 @@ let
 in pkgs.mkShell rec {
   name = "nix-infra-machine";
 
-  buildInputs = with pkgs; [    
+  buildInputs = with pkgs; [
+    hcloud
   ] ++ (if !isMacOS then [
   ] else []);
 

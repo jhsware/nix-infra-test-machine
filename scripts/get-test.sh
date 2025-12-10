@@ -33,5 +33,5 @@ echo "Make sure you have installed nix-infra, then:"
 echo
 echo "1. cd ./$name"
 echo "2. Edit .env"
-echo "3. Run __test__/run-tests.sh --env=.env"
+echo "3. Run: 'cli --help'"
 echo
