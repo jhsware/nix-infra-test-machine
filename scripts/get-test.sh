@@ -1,6 +1,6 @@
 #!/usr/bin/env sh
-TEMPLATE_REPO_BRANCH="git@github.com:jhsware/nix-infra-test-machine.git"
-TEMPLATE_REPO=main
+BRANCH=${BRANCH:-"main"}
+REPO=${REPO:-"git@github.com:jhsware/nix-infra-test-machine.git"}
 
 
 # Check for nix-infra CLI
@@ -15,19 +15,18 @@ if ! command -v git >/dev/null 2>&1; then
 fi
 
 
-read -p "Enter folder name [test-nix-infra-machine]: " name
+printf "Enter folder name [test-nix-infra-machine]: "
+read -r name
 name=${name:-test-nix-infra-machine}
 
-
-
-mkdir -p $name
+mkdir -p "$name"
 
 if [ -d "./$name" ]; then
   echo "Folder $name already exists in this directory, aborting."
   exit 1
 fi
 
-git clone -b $TEMPLATE_REPO_BRANCH $TEMPLATE_REPO "$name"
+git clone -b "$BRANCH" "$REPO" "$name"
 cd "$name" || exit 1
 cp .env.in .env
 
