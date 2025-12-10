@@ -1,7 +1,7 @@
 # nix-infra-test-machine
 This is a standalone setup for testing nix-infra. It is intended to allow you to try out nix-infra with minimal configuration. All you need is a Hetzner account and some super basic configuration.
 
-You are recommended to install Nix on your machine and work in a nix-shell. If you don't know how to install Nix, try the [Determinate Systems Nix installer](https://github.com/DeterminateSystems/nix-installer), it has uninstall support and automatic garbage collection.
+You are recommended to install Nix on your machine and work in a nix-shell. If you don't know how to install Nix, try the [Determinate Systems Nix installer](https://docs.determinate.systems/determinate-nix/), it has uninstall support and automatic garbage collection.
 
 1. Download [nix-infra](https://github.com/jhsware/nix-infra/releases) and install it
 
@@ -19,8 +19,13 @@ sh <(curl -L https://raw.githubusercontent.com/jhsware/nix-infra-test-machine/re
 5. Run the test script
 
 ```sh
-nix-shell
-test-nix-infra-machine/test-nix-infra-machine.sh --env=nix-infra-machine/.env
+__test__/run-tests.sh --env=.env
+```
+
+6. Use the cli script for normal operation
+
+```sh
+cli --help
 ```
 
 Once you have set up .env properly, the downloaded script will provision, configure and deploy your fleet. It will then run some tests to check that it is working properly and finish by tearing down the fleet.

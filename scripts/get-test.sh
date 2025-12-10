@@ -1,27 +1,39 @@
 #!/usr/bin/env sh
-read -p "Enter folder name [nix-infra-test]: " name
+TEMPLATE_REPO_BRANCH="git@github.com:jhsware/nix-infra-test-machine.git"
+TEMPLATE_REPO=main
+
+
+# Check for nix-infra CLI
+if ! command -v git >/dev/null 2>&1; then
+  echo "You need 'git' for this script to work."
+  echo "Install git using your prefered package manager. If in doubt, install Determinate Nix"
+  echo "https://docs.determinate.systems/determinate-nix/ and run: 'nix-shell -p git'"
+  echo
+  echo "With nix-shell you get ephemeral shell environments. Learn more:"
+  echo "https://medium.com/@nonickedgr/exploring-nix-shell-a-game-changer-for-ephemeral-environments-5c622e4074a8"
+  exit 1
+fi
+
+
+read -p "Enter folder name [test-nix-infra-machine]: " name
 name=${name:-test-nix-infra-machine}
+
+
 
 mkdir -p $name
 
-fetch() {
-  if command -v curl >/dev/null 2>&1; then
-    curl -s $2 -o $3
-  elif command -v wget >/dev/null 2>&1; then
-    wget -q $2 -O $3
-  else
-    echo "neither curl nor wget is installed. Please install and try again."
-    exit 1
-  fi
-  chmod $1 $3
-}
+if [ -d "./$name" ]; then
+  echo "Folder $name already exists in this directory, aborting."
+  exit 1
+fi
 
-fetch 755 https://raw.githubusercontent.com/jhsware/nix-infra/refs/heads/main/scripts/test-nix-infra-machine.sh $name/test-nix-infra-machine.sh
-fetch 644 https://raw.githubusercontent.com/jhsware/nix-infra/refs/heads/main/scripts/check.sh $name/check.sh
-fetch 644 https://raw.githubusercontent.com/jhsware/nix-infra-test-machine/refs/heads/main/.env.in $name/.env
+git clone -b $TEMPLATE_REPO_BRANCH $TEMPLATE_REPO "$name"
+cd "$name" || exit 1
+cp .env.in .env
+
 echo "Done!"
 echo
 echo "Make sure you have installed nix-infra, then:"
-echo "1. Edit $name/.env"
-echo "2. Run $name/test-nix-infra-machine.sh --env=$name/.env"
+echo "1. Edit .env"
+echo "2. Run scripts/cli --env=.env"
 echo

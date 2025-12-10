@@ -12,8 +12,6 @@ let
 
       options = {
 
-        # Some settings to support service mesh
-
         app = {
           name = mkOption {
             type = with types; str;
@@ -25,10 +23,9 @@ let
         bindToIp = mkOption {
           type = with types; nullOr str;
           default = null;
-          description = "Wg IP to bind to.";
+          description = "IP to bind to.";
           example = "127.0.0.1";
         };
-
 
         # Settings for running container
 
@@ -285,25 +282,6 @@ let
 
 
   mkService = name: container: let
-    serviceMetaData = {
-      publish = {
-        port = container.app.port;
-      };
-      env_prefix = container.app.envPrefix;
-      env = {
-        PROTOCOL = container.app.protocol;
-        HOST = "127.0.0.1"; # This directs the consumer to use the local haproxy loadbalancer
-        PORT = container.app.port;
-        PATH = container.app.path;
-      };
-    };
-
-    instanceEntry = {
-      node = "${config.networking.hostName}";
-      ipv4 = "${container.bindToIp}";
-      port = container.app.port;
-    };
-
     dependsOn = map (x: "${cfg.backend}-${x}.service") container.dependsOn;
     escapedName = escapeShellArg name;
   in {
@@ -349,12 +327,9 @@ let
       ++ map escapeShellArg container.cmd
     );
 
-    preStart = "${preStartScript}";
-    postStart = "${postStartScript}";
-
     preStop = if cfg.backend == "podman"
-      then "${preStopScript}; podman stop --ignore --cidfile=/run/podman-${escapedName}.ctr-id"
-      else "${preStopScript}; ${cfg.backend} stop ${name} || true";
+      then "podman stop --ignore --cidfile=/run/podman-${escapedName}.ctr-id"
+      else "${cfg.backend} stop ${name} || true";
 
     postStop = if cfg.backend == "podman"
       then "podman rm -f --ignore --cidfile=/run/podman-${escapedName}.ctr-id"
@@ -389,19 +364,6 @@ let
     };
   };
 in {
-  # imports = [
-  #   (
-  #     lib.mkChangedOptionModule
-  #     [ "docker-containers"  ]
-  #     [ "virtualisation" "oci-containers" ]
-  #     (oldcfg: {
-  #       backend = "docker";
-  #       containers = lib.mapAttrs (n: v: builtins.removeAttrs (v // {
-  #         extraOptions = v.extraDockerOptions or [];
-  #       }) [ "extraDockerOptions" ]) oldcfg.docker-containers;
-  #     })
-  #   )
-  # ];
 
   options.infrastructure.oci-containers = {
 
@@ -429,8 +391,6 @@ in {
     (lib.mkIf (cfg.backend == "docker") {
       virtualisation.docker.enable = true;
     })
-    # Open the firewall ports for the container. Note: the concatLists is so we can combine port with auxPorts which is a list
-    { networking.firewall.interfaces."flannel-wg".allowedTCPPorts = concatLists (lib.attrsets.mapAttrsToList (n: v: [ v.app.port ] ++ v.app.auxPorts ) cfg.containers); }
   ]);
 
 }

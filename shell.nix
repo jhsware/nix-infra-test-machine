@@ -5,14 +5,10 @@ let
 
   isMacOS = builtins.match ".*-darwin" pkgs.stdenv.hostPlatform.system != null;
 in pkgs.mkShell rec {
-  name = "nix-infra";
+  name = "nix-infra-machine";
 
   buildInputs = with pkgs; [    
-    pkgs.openssl
-    # pkgs.hcloud
-    hcloud
   ] ++ (if !isMacOS then [
-    pkgs.openssh
   ] else []);
 
   shellHook = ''
