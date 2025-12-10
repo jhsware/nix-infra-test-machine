@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 set -a
-SCRIPT_DIR=$(dirname "$0")
-WORK_DIR=${WORK_DIR:-"$(readlink -f "$SCRIPT_DIR/..")"}
+WORK_DIR=${WORK_DIR:-"$(dirname "$0")"}
 NIX_INFRA=${NIX_INFRA:-"nix-infra"}
 NIXOS_VERSION=${NIXOS_VERSION:-"25.11"}
 SSH_KEY=${SSH_KEY:-"nixinfra-machine"}
@@ -9,6 +8,7 @@ SSH_EMAIL=${SSH_EMAIL:-"your-email@example.com"}
 SECRETS_PWD=${SECRETS_PWD:-"my_secrets_password"}
 LOCATION=${LOCATION:-"hel1"}
 MACHINE_TYPE=${MACHINE_TYPE:-"cpx21"}
+ENV=${ENV:-"$WORK_DIR/.env"}
 set +a
 
 # Check for nix-infra CLI
@@ -116,7 +116,7 @@ printTime() {
 }
 
 destroyNodes() {
-  $NIX_INFRA fleet destroy -d "$WORK_DIR" --batch \
+  $NIX_INFRA fleet destroy -d "$WORK_DIR" --env="$ENV" --batch \
       --target="$TARGET"
 }
 
@@ -137,7 +137,7 @@ if [ "$CMD" = "ssh" ]; then
     echo "Usage: $0 ssh --env=.env <node>"
     exit 1
   fi
-  $NIX_INFRA fleet ssh -d "$WORK_DIR" --target="$REST"
+  $NIX_INFRA fleet ssh -d "$WORK_DIR" --env="$ENV" --target="$REST"
   exit 0
 fi
 
@@ -146,7 +146,7 @@ if [ "$CMD" = "cmd" ]; then
     echo "Usage: $0 cmd --env=.env --target=<node> <command>"
     exit 1
   fi
-  $NIX_INFRA fleet cmd -d "$WORK_DIR" --target="$TARGET" "$REST"
+  $NIX_INFRA fleet cmd -d "$WORK_DIR" --env="$ENV" --target="$TARGET" "$REST"
   exit 0
 fi
 
@@ -157,7 +157,7 @@ if [ "$CMD" = "action" ]; then
   fi
   
   read -r module action_cmd <<< "$REST"
-  $NIX_INFRA fleet action -d "$WORK_DIR" --target="$TARGET" --app-module="$module" \
+  $NIX_INFRA fleet action -d "$WORK_DIR" --env="$ENV" --target="$TARGET" --app-module="$module" \
     --cmd="$action_cmd"
   exit 0
 fi
@@ -172,7 +172,7 @@ if [ "$CMD" = "port-forward" ]; then
   IFS=: read LOCAL_PORT REMOTE_PORT <<< "$PORT_MAPPING"
   IFS=$OLD_IFS
 
-  $NIX_INFRA fleet port-forward -d "$WORK_DIR" --env="$WORK_DIR/.env" \
+  $NIX_INFRA fleet port-forward -d "$WORK_DIR" --env="$ENV" \
     --target="$TARGET" \
     --local-port="$LOCAL_PORT" \
     --remote-port="$REMOTE_PORT"
@@ -199,25 +199,28 @@ if [ "$CMD" = "update" ]; then
     exit 1
   fi
   
-  $NIX_INFRA fleet update -d "$WORK_DIR" --batch --env="$WORK_DIR/.env" \
+  $NIX_INFRA fleet update -d "$WORK_DIR" --env="$ENV" --batch \
     --nixos-version="$NIXOS_VERSION" \
     --target="$REST" \
     --node-module="node_types/standalone_machine.nix" \
-    --rebuild
+    --no-rebuild
   
-  $NIX_INFRA fleet deploy-apps -d "$WORK_DIR" --no-overlay-network --batch --env="$WORK_DIR/.env" \
+  $NIX_INFRA fleet deploy-apps -d "$WORK_DIR" --env="$ENV" --batch \
     --target="$REST"
-  $NIX_INFRA fleet cmd -d "$WORK_DIR" --target="$REST" "nixos-rebuild switch --fast"
+
+  $NIX_INFRA fleet cmd -d "$WORK_DIR" --env="$ENV" --target="$REST" "nixos-rebuild switch --fast"
   exit 0
 fi
 
 if [ "$CMD" = "upgrade" ]; then
   if [ -z "$REST" ]; then
-    echo "Usage: $0 upgrade --env=.env <node1> <node2> ..."
+    echo "Usage: $0 upgrade --env=$ENV [--nixos-version='$NIXOS_VERSION'] [node1 node2 ...]"
     exit 1
   fi
-  
-  $NIX_INFRA fleet cmd -d "$WORK_DIR" --target="$REST" "nixos-rebuild switch --upgrade"
+  # (cd "$WORK_DIR" && git fetch origin && git reset --hard origin/$(git branch --show-current))
+  $NIX_INFRA cluster upgrade-nixos -d "$WORK_DIR" --env="$ENV" --batch \
+    --nixos-version="$NIXOS_VERSION" \
+    --target="$REST"
   exit 0
 fi
 
@@ -227,7 +230,7 @@ if [ "$CMD" = "rollback" ]; then
     exit 1
   fi
 
-  $NIX_INFRA fleet cmd -d "$WORK_DIR" --target="$REST" "nixos-rebuild switch --rollback"
+  $NIX_INFRA fleet cmd -d "$WORK_DIR" --env="$ENV" --target="$REST" "nixos-rebuild switch --rollback"
   exit 0
 fi
 
@@ -248,7 +251,7 @@ if [ "$CMD" = "create" ]; then
   # Initialize if not already done (check for ssh directory)
   if [ ! -d "$WORK_DIR/ssh" ]; then
     echo "Initializing nix-infra..."
-    $NIX_INFRA init -d "$WORK_DIR" --no-cert-auth --batch
+    $NIX_INFRA init -d "$WORK_DIR" --env="$ENV" --no-cert-auth --batch
   fi
 
   # Add SSH key to agent
@@ -256,7 +259,7 @@ if [ "$CMD" = "create" ]; then
 
   echo "*** Provisioning NixOS $NIXOS_VERSION ***"
 
-  $NIX_INFRA fleet provision -d "$WORK_DIR" --batch --env="$WORK_DIR/.env" \
+  $NIX_INFRA fleet provision -d "$WORK_DIR" --env="$ENV" --batch \
       --nixos-version="$NIXOS_VERSION" \
       --ssh-key="$SSH_KEY" \
       --location="$LOCATION" \
@@ -269,20 +272,20 @@ if [ "$CMD" = "create" ]; then
 
   echo "*** Initializing machines ***"
 
-  $NIX_INFRA fleet init-machine -d "$WORK_DIR" --batch --env="$WORK_DIR/.env" \
+  $NIX_INFRA fleet init-machine -d "$WORK_DIR" --env="$ENV" --batch \
       --nixos-version="$NIXOS_VERSION" \
       --target="$TARGET" \
       --node-module="node_types/standalone_machine.nix"
 
-  $NIX_INFRA fleet cmd -d "$WORK_DIR" --target="$TARGET" "nixos-rebuild switch --fast"
+  $NIX_INFRA fleet cmd -d "$WORK_DIR" --env="$ENV" --target="$TARGET" "nixos-rebuild switch --fast"
 
   _init_nodes=$(date +%s)
 
   echo "*** Deploying apps ***"
 
-  $NIX_INFRA fleet deploy-apps -d "$WORK_DIR" --batch --env="$WORK_DIR/.env" \
+  $NIX_INFRA fleet deploy-apps -d "$WORK_DIR" --env="$ENV" --batch \
     --target="$TARGET"
-  $NIX_INFRA fleet cmd -d "$WORK_DIR" --target="$TARGET" "nixos-rebuild switch --fast"
+  $NIX_INFRA fleet cmd -d "$WORK_DIR" --env="$ENV" --target="$TARGET" "nixos-rebuild switch --fast"
 
   _end=$(date +%s)
 
