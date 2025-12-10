@@ -19,12 +19,13 @@ printf "Enter folder name [test-nix-infra-machine]: "
 read -r name
 name=${name:-test-nix-infra-machine}
 
-if [ -d "./$name" ]; then
-  echo "Folder $name already exists in this directory, aborting."
+if [ -e "./$name" ]; then
+  echo "Folder or file $name already exists in this directory, aborting."
   exit 1
 fi
 
 git clone -b "$BRANCH" "$REPO" "$name"
+echo "Cloned template repo to $name"
 cd "$name" || exit 1
 cp .env.in .env
 
@@ -32,5 +33,6 @@ echo "Done!"
 echo
 echo "Make sure you have installed nix-infra, then:"
 echo "1. Edit .env"
-echo "2. Run scripts/cli --env=.env"
+echo "2. Run __test__/run-tests.sh --env=.env"
 echo
+pwd
