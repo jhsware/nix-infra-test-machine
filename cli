@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-set -a
 WORK_DIR=${WORK_DIR:-"$(dirname "$0")"}
 NIX_INFRA=${NIX_INFRA:-"nix-infra"}
 NIXOS_VERSION=${NIXOS_VERSION:-"25.11"}
@@ -9,7 +8,6 @@ SECRETS_PWD=${SECRETS_PWD:-"my_secrets_password"}
 LOCATION=${LOCATION:-"hel1"}
 MACHINE_TYPE=${MACHINE_TYPE:-"cpx21"}
 ENV=${ENV:-"$WORK_DIR/.env"}
-set +a
 
 # Check for nix-infra CLI
 if ! command -v nix-infra >/dev/null 2>&1; then
@@ -29,16 +27,27 @@ Commands:
   update <nodes>      Update node configuration and deploy apps
   upgrade <nodes>     Upgrade NixOS version on nodes
   rollback <nodes>    Rollback to previous NixOS configuration
-  destroy             Destroy machines (requires --target)
+  destroy             Destroy machines
+      --target=<nodes>    Nodes to destroy
 
   ssh <node>          SSH into a node
-  cmd --target=<nodes> <command>   Run command on node(s)
-  action --target=<node> <module> <cmd>   Run app action
-  port-forward --target=<node> --port-mapping=<local:remote>
+  cmd                 Run command on node(s)
+      --target=<nodes>    Target node(s)
+      <command>           Command to execute
+  action              Run app module action
+      --target=<node>     Target node
+      <module>            App module name
+      <cmd>               Action command to run
+  port-forward        Forward port from remote node to local
+      --target=<node>         Target node to forward from
+      --port-mapping=<l:r>    Port mapping as local:remote
+  claude              Launch Claude with nix-infra-machine-mcp
 
 Options:
-  --env=<file>        Environment file (default: .env)
-  --target=<nodes>    Target node(s) for commands
+  --env=<file>            Environment file (default: .env)
+  --target=<nodes>        Target node(s) for commands
+  --node-module=<file>    Node module file (default: node_types/standalone_machine.nix)
+  --port-mapping=<l:r>    Port mapping as local:remote (for port-forward)
 
 Examples:
   # Create a new machine
@@ -61,7 +70,7 @@ Examples:
 EOF
 )
 
-if [[ "create upgrade rollback destroy update ssh cmd action port-forward" == *"$1"* ]]; then
+if [[ "create upgrade rollback destroy update ssh cmd action port-forward claude" == *"$1"* ]]; then
   CMD="$1"
   shift
 else
@@ -87,6 +96,10 @@ for i in "$@"; do
     PORT_MAPPING="${i#*=}"
     shift
     ;;
+    --node-module=*)
+    NODE_MODULE="${i#*=}"
+    shift
+    ;;
     *)
     REST="$@"
     ;;
@@ -95,9 +108,7 @@ done
 
 # Read the environment file if provided
 if [ "$ENV" != "" ] && [ -f "$ENV" ]; then
-  set -a
   source "$ENV"
-  set +a
 fi
 
 # A Hetzner Cloud token is required
@@ -198,11 +209,13 @@ if [ "$CMD" = "update" ]; then
     echo "Usage: $0 update --env=.env <node1> <node2> ..."
     exit 1
   fi
+
+  NODE_MODULE=${NODE_MODULE:-"node_types/standalone_machine.nix"}
   
   $NIX_INFRA fleet update -d "$WORK_DIR" --env="$ENV" --batch \
     --nixos-version="$NIXOS_VERSION" \
     --target="$REST" \
-    --node-module="node_types/standalone_machine.nix" \
+    --node-module="$NODE_MODULE" \
     --no-rebuild
   
   $NIX_INFRA fleet deploy-apps -d "$WORK_DIR" --env="$ENV" --batch \
@@ -272,10 +285,12 @@ if [ "$CMD" = "create" ]; then
 
   echo "*** Initializing machines ***"
 
+  NODE_MODULE=${NODE_MODULE:-"node_types/standalone_machine.nix"}
+
   $NIX_INFRA fleet init-machine -d "$WORK_DIR" --env="$ENV" --batch \
       --nixos-version="$NIXOS_VERSION" \
       --target="$TARGET" \
-      --node-module="node_types/standalone_machine.nix"
+      --node-module="$NODE_MODULE"
 
   $NIX_INFRA fleet cmd -d "$WORK_DIR" --env="$ENV" --target="$TARGET" "nixos-rebuild switch --fast"
 
@@ -298,4 +313,60 @@ if [ "$CMD" = "create" ]; then
   echo "=========================================="
   echo "Done!"
   exit 0
+fi
+
+if [ "$CMD" = "claude" ]; then
+  if [ -z "$SSH_KEY" ] || [ -z "$HCLOUD_TOKEN" ]; then
+    echo "You need a .env file in the working directory with SSH_KEY and HCLOUD_TOKEN defined" >&2
+    exit 1
+  fi
+
+  if ! type nix-infra-machine-mcp &> /dev/null; then
+    echo "nix-infra-machine-mcp is not installed" >&2
+    exit 1
+  fi
+
+  # Detect OS and set paths accordingly
+  case "$(uname -s)" in
+    Darwin)
+      path_to_claude="$HOME/Library/Application Support/Claude"
+      claude_bin="/Applications/Claude.app/Contents/MacOS/Claude"
+      ;;
+    Linux)
+      path_to_claude="${XDG_CONFIG_HOME:-$HOME/.config}/Claude"
+      claude_bin="claude"
+      ;;
+    *)
+      echo "Unsupported operating system: $(uname -s)" >&2
+      exit 1
+      ;;
+  esac
+
+  if [ ! -d "$path_to_claude" ]; then
+    echo "You do not have Claude Application Support files in your user. Start the app once manually and retry." >&2
+    exit 1
+  fi
+
+  if [ -f "$path_to_claude/claude_desktop_config.json" ]; then
+    cp -f "$path_to_claude/claude_desktop_config.json" "$path_to_claude/claude_desktop_config.json.nix-infra.bak"
+  fi
+
+  # Create mcp configuration for Claude
+  cat > "$path_to_claude/claude_desktop_config.json" << EOF
+{
+  "mcpServers": {
+      "nix-infra-machine-mcp": {
+          "command": "nix-infra-machine-mcp"
+      }
+  }
+}
+EOF
+
+  # Run claude
+  "$claude_bin" 2>&1
+
+  # Reset mcp configuration for Claude
+  if [ -f "$path_to_claude/claude_desktop_config.json.nix-infra.bak" ]; then
+    cp -f "$path_to_claude/claude_desktop_config.json.nix-infra.bak" "$path_to_claude/claude_desktop_config.json"
+  fi
 fi
