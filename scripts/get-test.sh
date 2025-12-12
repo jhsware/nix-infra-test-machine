@@ -33,5 +33,7 @@ echo "Make sure you have installed nix-infra, then:"
 echo
 echo "1. cd ./$name"
 echo "2. Edit .env"
-echo "3. Run: 'cli --help'"
+echo "3. Run:"
+echo "   ./cli --help              - Manage infrastructure (create, destroy, ssh, etc.)"
+echo "   ./__test__/run-tests.sh --help - Run test suite against machines"
 echo
