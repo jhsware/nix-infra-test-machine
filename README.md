@@ -1,104 +1,202 @@
-# nix-infra-test-machine
-This is a standalone setup for testing nix-infra. It is intended to allow you to try out nix-infra with minimal configuration. All you need is a Hetzner account and some super basic configuration.
+# nix-infra-machine
 
-You are recommended to install Nix on your machine and work in a nix-shell. If you don't know how to install Nix, try the [Determinate Systems Nix installer](https://docs.determinate.systems/determinate-nix/), it has uninstall support and automatic garbage collection.
+A standalone machine template for [nix-infra](https://github.com/jhsware/nix-infra). This template allows you to deploy and manage individual machines (or fleets of machines) with minimal configuration. All you need is a Hetzner Cloud account.
 
-1. Download [nix-infra](https://github.com/jhsware/nix-infra/releases) and install it
+## Prerequisites
 
-## Option 1: Run a fully automated test script
+- [nix-infra CLI](https://github.com/jhsware/nix-infra/releases) installed
+- A Hetzner Cloud account with an API token
+- Git installed
 
-2. Run [this script](https://github.com/jhsware/nix-infra-test-machine/blob/main/scripts/get-test.sh) in the terminal to download test scripts:
+Optional but recommended: Install [Nix](https://docs.determinate.systems/determinate-nix/) and work in a nix-shell for reproducible environments.
 
-```sh
-sh <(curl -L https://raw.githubusercontent.com/jhsware/nix-infra-test-machine/refs/heads/main/scripts/get-test.sh)
-```
-3. Get an API-key for an empty Hetzner Cloud project
+## Quick Start
 
-4. Edit the .env in the created folder
-
-5. Run the test script
+1. Run this script to clone the template:
 
 ```sh
-__test__/run-tests.sh --env=.env
+sh <(curl -L https://raw.githubusercontent.com/jhsware/nix-infra-machine/refs/heads/main/scripts/get-test.sh)
 ```
 
-6. Use the cli script for normal operation
+2. Get an API token from your Hetzner Cloud project
+
+3. Edit the `.env` file in the created folder with your token and settings
+
+4. Explore available commands:
 
 ```sh
-cli --help
+cd test-nix-infra-machine
+
+# Infrastructure management (create, destroy, ssh, etc.)
+./cli --help
+
+# Run test suite against machines
+./__test__/run-tests.sh --help
 ```
 
-Once you have set up .env properly, the downloaded script will provision, configure and deploy your fleet. It will then run some tests to check that it is working properly and finish by tearing down the fleet.
+## CLI Commands
 
-## Option 2: Create your custom config
-
-2. Clone [this repos](https://github.com/jhsware/nix-infra-test-machine):
+The `cli` script is your main interface for managing infrastructure:
 
 ```sh
-git clone git@github.com:jhsware/nix-infra-test-machine.git [my-new-repo]
+# Create a machine
+./cli create node001
+
+# Create multiple machines
+./cli create node001 node002 node003
+
+# SSH into a machine
+./cli ssh node001
+
+# Run commands on machines
+./cli cmd --target=node001 "systemctl status nginx"
+
+# Update configuration and deploy apps
+./cli update node001
+
+# Upgrade NixOS version
+./cli upgrade node001
+
+# Rollback to previous configuration
+./cli rollback node001
+
+# Run app module actions
+./cli action --target=node001 myapp status
+
+# Port forward from remote to local
+./cli port-forward --target=node001 --port-mapping=8080:80
+
+# Destroy machines
+./cli destroy --target="node001 node002"
+
+# Launch Claude with MCP integration
+./cli claude
 ```
 
-3. Get an API-key for an empty Hetzner Cloud project
+## Running Tests
 
-4. Edit the .env in the created folder
+The test workflow has two stages:
 
-3. Get an API-key for an empty Hetzner Cloud project
+### 1. Create the test machines
 
-4. Edit the .env in the created folder
+The `create` command provisions the base machines and verifies basic functionality:
+
+```sh
+# Provision machines and run basic health checks
+./__test__/run-tests.sh create
+```
+
+This creates and verifies: NixOS installation and basic system health.
+
+### 2. Run app_module tests against the machines
+
+Once you have running machines, use `run` to test specific app_modules:
+
+```sh
+# Run a single app test (e.g., mongodb)
+./__test__/run-tests.sh run mongodb
+
+# Keep test apps deployed after running
+./__test__/run-tests.sh run --no-teardown mongodb
+```
+
+Available tests are defined in `__test__/<test-name>/test.sh`. List available tests:
+
+```sh
+ls __test__/*/test.sh
+```
+
+### Other test commands
+
+```sh
+# Reset machine state between test runs
+./__test__/run-tests.sh reset mongodb
+
+# Destroy all test machines
+./__test__/run-tests.sh destroy
+
+# Check machine health
+./__test__/run-tests.sh test
+```
+
+Useful commands for exploring running test machines:
+
+```sh
+./__test__/run-tests.sh ssh node001
+./__test__/run-tests.sh cmd --target=node001 "uptime"
+```
+
+## Custom Configuration
+
+To create your own configuration from scratch:
+
+1. Clone this repository:
+
+```sh
+git clone git@github.com:jhsware/nix-infra-machine.git my-infrastructure
+cd my-infrastructure
+```
+
+2. Set up environment:
 
 ```sh
 cp .env.in .env
-nano .env
+nano .env  # Add your HCLOUD_TOKEN and other settings
 ```
 
-5. Initialise the repo
+3. Create and manage your machines:
 
 ```sh
-nix-shell
-scripts/cli init --env=.env
+./cli create node001
+./cli ssh node001
+./cli update node001
 ```
 
-6. Work with your fleet
+## Directory Structure
+
+```
+.
+├── cli                 # Main CLI for infrastructure management
+├── .env                # Environment configuration (create from .env.in)
+├── nodes/              # Per-node configuration files
+├── node_types/         # Node type templates (standalone_machine.nix)
+├── app_modules/        # Application module definitions
+├── __test__/           # Test scripts and test definitions
+└── scripts/            # Utility scripts
+```
+
+## Deploying Applications
+
+Each node has its configuration in `nodes/`. Configure what apps to run and their settings here.
+
+Deploy using the `update` command:
 
 ```sh
-scripts/cli create --env=.env node001
-scripts/cli ssh --env=.env node001
-scripts/cli cmd --env=.env --target=node001 ls -alh
-scripts/cli destroy --env=.env --target=node001
-scripts/cli update --env=.env node001
+./cli update node001 node002
 ```
 
-To create custom configurationsm add them to the `nodes/` sub-directory and then run the `create`or `update` command above. The custom configuration is optional, if you want to create a fleet of equivalent machines you can add configuration files to `node_types/` and edit the cli script to allow you to select which type to use.
-
-## Test Script Options
-
-To build without immediately tearing down the cluster:
+You can specify a custom node module:
 
 ```sh
-test-nix-infra-machine.sh --no-teardown --env=nix-infra-machine/.env
+./cli create --node-module=node_types/custom_machine.nix node001
 ```
 
-Useful commands to explore the running test cluster (check the bash script for more):
+## Secrets
+
+Store secrets securely using the nix-infra CLI:
 
 ```sh
-test-nix-infra-machine.sh cmd --target=node001 "uptime" --env=nix-infra-machine/.env
-test-nix-infra-machine.sh ssh node001 --env=nix-infra-machine/.env
+nix-infra secrets store -d . --secret="my-secret-value" --name="app.secret"
 ```
 
-To tear down the cluster:
+Or save action output as a secret:
 
 ```sh
-test-nix-infra-machine.sh teardown --env=nix-infra-machine/.env
+./cli action --target=node001 myapp create-credentials --save-as-secret="myapp.credentials"
 ```
 
-## Deploying an Application
-Each node has it's own configuration in the `nodes/` folder.
+Secrets are encrypted locally and deployed as systemd credentials (automatically encrypted/decrypted on demand).
 
-In this configuration you can configure what apps to run on that node and how you want them to be configured.
+## Node Types
 
-The actual deployment is done using the `deploy-apps` command and specifying the target nodes you want to update. All app configurations or the node will be affected.
-
-### Secrets
-To securely provide secrets to your application, store them using the CLI `secrets` command or as an output from a CLI `action`command using the option `--store-as-secret=[name]`.
-
-The secret will be encrypted in your local cluster configuration directory. When deploying an application, the CLI will pass any required secrets to the target and store it as a systemd credential. Systemd credentials are automatically encrypted/decrypted on demand.
+The default node type is `node_types/standalone_machine.nix`. Create custom node types in `node_types/` for different machine configurations, then reference them with `--node-module`.
