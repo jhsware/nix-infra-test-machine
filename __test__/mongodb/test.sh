@@ -2,22 +2,27 @@
 # MongoDB standalone test for nix-infra-machine
 #
 # This test:
-# 1. Deploys MongoDB 4.4 as a podman container
+# 1. Deploys MongoDB as a native service
 # 2. Verifies the service is running
 # 3. Tests basic MongoDB operations (insert/query)
 # 4. Cleans up on teardown
+
+# Colors
+GREEN='\033[0;32m'
+RED='\033[0;31m'
+NC='\033[0m' # No Color
 
 # Handle teardown command
 if [ "$CMD" = "teardown" ]; then
   echo "Tearing down MongoDB test..."
   
-  # Stop and remove container if running
+  # Stop MongoDB service
   $NIX_INFRA fleet cmd -d "$WORK_DIR" --target="$TEST_NODES" \
-    'systemctl stop podman-mongodb-4 2>/dev/null || true'
+    'systemctl stop mongodb 2>/dev/null || true'
   
   # Clean up data directory
   $NIX_INFRA fleet cmd -d "$WORK_DIR" --target="$TEST_NODES" \
-    'rm -rf /var/lib/mongodb-4'
+    'rm -rf /var/lib/mongodb'
   
   echo "MongoDB teardown complete"
   return 0
@@ -39,8 +44,7 @@ echo ""
 echo "Step 1: Deploying MongoDB configuration..."
 $NIX_INFRA fleet deploy-apps -d "$WORK_DIR" --batch --env="$WORK_DIR/.env" \
   --test-dir="$WORK_DIR/$TEST_DIR" \
-  --target="$TEST_NODES" \
-  --no-overlay-network
+  --target="$TEST_NODES"
 
 # Apply the configuration
 echo "Step 2: Applying NixOS configuration..."
@@ -63,28 +67,26 @@ sleep 5
 # Check if the systemd service is active
 echo "Checking systemd service status..."
 for node in $TEST_NODES; do
-  service_status=$(cmd "$node" "systemctl is-active podman-mongodb-4")
+  service_status=$(cmd "$node" "systemctl is-active mongodb")
   if [[ "$service_status" == *"active"* ]]; then
-    echo "  ✓ podman-mongodb-4: active ($node)"
+    echo -e "  ${GREEN}✓${NC} mongodb: active ($node) [pass]"
   else
-    echo "  ✗ podman-mongodb-4: $service_status ($node)"
+    echo -e "  ${RED}✗${NC} mongodb: $service_status ($node) [fail]"
     echo ""
     echo "Service logs:"
-    cmd "$node" "journalctl -n 30 -u podman-mongodb-4"
+    cmd "$node" "journalctl -n 30 -u mongodb"
   fi
 done
 
-# Check if container is running
+# Check if MongoDB process is running
 echo ""
-echo "Checking container status..."
+echo "Checking MongoDB process..."
 for node in $TEST_NODES; do
-  container_status=$(cmd "$node" "podman ps --filter name=mongodb-4 --format '{{.Names}} {{.Status}}'")
-  if [[ "$container_status" == *"mongodb-4"* ]]; then
-    echo "  ✓ Container running: $container_status ($node)"
+  process_status=$(cmd "$node" "pgrep -a mongod")
+  if [[ -n "$process_status" ]]; then
+    echo -e "  ${GREEN}✓${NC} MongoDB process running ($node) [pass]"
   else
-    echo "  ✗ Container not running ($node)"
-    echo "All containers:"
-    cmd "$node" "podman ps -a"
+    echo -e "  ${RED}✗${NC} MongoDB process not running ($node) [fail]"
   fi
 done
 
@@ -94,9 +96,9 @@ echo "Checking MongoDB port (27017)..."
 for node in $TEST_NODES; do
   port_check=$(cmd "$node" "ss -tlnp | grep 27017")
   if [[ "$port_check" == *"27017"* ]]; then
-    echo "  ✓ Port 27017 is listening ($node)"
+    echo -e "  ${GREEN}✓${NC} Port 27017 is listening ($node) [pass]"
   else
-    echo "  ✗ Port 27017 is not listening ($node)"
+    echo -e "  ${RED}✗${NC} Port 27017 is not listening ($node) [fail]"
   fi
 done
 
@@ -114,35 +116,35 @@ for node in $TEST_NODES; do
   
   # Insert a test document
   echo "  Inserting test document..."
-  insert_result=$(cmd "$node" "podman exec mongodb-4 mongosh --quiet --eval 'db.test.insertOne({name: \"test\", value: 42})'")
+  insert_result=$(cmd "$node" "mongosh --quiet --eval 'db.test.insertOne({name: \"test\", value: 42})'")
   if [[ "$insert_result" == *"acknowledged"* ]] || [[ "$insert_result" == *"insertedId"* ]]; then
-    echo "  ✓ Insert operation successful"
+    echo -e "  ${GREEN}✓${NC} Insert operation successful [pass]"
   else
-    echo "  ✗ Insert operation failed: $insert_result"
+    echo -e "  ${RED}✗${NC} Insert operation failed: $insert_result [fail]"
   fi
   
   # Query the test document
   echo "  Querying test document..."
-  query_result=$(cmd "$node" "podman exec mongodb-4 mongosh --quiet --eval 'db.test.findOne({name: \"test\"})'")
+  query_result=$(cmd "$node" "mongosh --quiet --eval 'db.test.findOne({name: \"test\"})'")
   if [[ "$query_result" == *"value"* ]] && [[ "$query_result" == *"42"* ]]; then
-    echo "  ✓ Query operation successful"
+    echo -e "  ${GREEN}✓${NC} Query operation successful [pass]"
   else
-    echo "  ✗ Query operation failed: $query_result"
+    echo -e "  ${RED}✗${NC} Query operation failed: $query_result [fail]"
   fi
   
   # Test database listing
   echo "  Listing databases..."
-  db_list=$(cmd "$node" "podman exec mongodb-4 mongosh --quiet --eval 'db.adminCommand({listDatabases: 1}).databases.map(d => d.name)'")
+  db_list=$(cmd "$node" "mongosh --quiet --eval 'db.adminCommand({listDatabases: 1}).databases.map(d => d.name)'")
   if [[ "$db_list" == *"admin"* ]]; then
-    echo "  ✓ Database listing successful"
+    echo -e "  ${GREEN}✓${NC} Database listing successful [pass]"
   else
-    echo "  ✗ Database listing failed: $db_list"
+    echo -e "  ${RED}✗${NC} Database listing failed: $db_list [fail]"
   fi
   
   # Clean up test data
   echo "  Cleaning up test data..."
-  cmd "$node" "podman exec mongodb-4 mongosh --quiet --eval 'db.test.drop()'" > /dev/null 2>&1
-  echo "  ✓ Test data cleaned up"
+  cmd "$node" "mongosh --quiet --eval 'db.test.drop()'" > /dev/null 2>&1
+  echo -e "  ${GREEN}✓${NC} Test data cleaned up [pass]"
 done
 
 # ============================================================================
