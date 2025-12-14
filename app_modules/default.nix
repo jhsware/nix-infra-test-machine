@@ -1,5 +1,6 @@
 {
   imports = [
     ./mongodb
+    ./mongodb-pod
   ];
 }
