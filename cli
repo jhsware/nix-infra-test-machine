@@ -481,12 +481,7 @@ EOF
 {
   "mcpServers": {
     "nix-infra-dev-mcp": {
-      "command": "dart",
-      "args": [
-        "run",
-        "--verbosity=error",
-        "../nix-infra/bin/nix_infra_dev_mcp.dart"
-      ]
+      "command": "nix-infra-dev-mcp"
     }
   }
 }
