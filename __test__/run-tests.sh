@@ -16,7 +16,7 @@ if [ "$NIX_INFRA" = "nix-infra" ] && ! command -v nix-infra >/dev/null 2>&1; the
   exit 1
 fi
 
-__help_text__=$(cat <<EOF
+read -r -d '' __help_text__ <<EOF || true
 nix-infra-machine Test Runner
 =============================
 
@@ -58,7 +58,6 @@ Examples:
   $0 reset mongodb --env=.env
   $0 run mongodb --env=.env
 EOF
-)
 
 if [[ "create upgrade run reset destroy update status ssh cmd action port-forward" == *"$1"* ]]; then
   CMD="$1"
@@ -298,7 +297,7 @@ fi
 
 if [ "$CMD" = "create" ]; then
   if [ ! -f "$ENV" ]; then
-    env=$(cat <<EOF
+    read -r -d '' env <<EOF || true
 # NOTE: The following secrets are required for various operations
 # by the nix-infra CLI. Make sure they are encrypted when not in use
 SSH_KEY=$SSH_KEY
@@ -311,7 +310,6 @@ HCLOUD_TOKEN=$HCLOUD_TOKEN
 # These need to be kept secret.
 SECRETS_PWD=$SECRETS_PWD
 EOF
-)
     echo "$env" > "$WORK_DIR/.env"
   fi
 
