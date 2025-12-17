@@ -2,7 +2,7 @@
 SCRIPT_DIR=$(dirname "$(readlink -f "$0")")
 WORK_DIR=${WORK_DIR:-$(dirname "$SCRIPT_DIR")}
 NIX_INFRA=${NIX_INFRA:-"nix-infra"}
-NIXOS_VERSION=${NIXOS_VERSION:-"25.11"}
+NIXOS_VERSION=${NIXOS_VERSION:-"25.05"}
 SSH_KEY="nixinfra-machine"
 SSH_EMAIL=${SSH_EMAIL:-your-email@example.com}
 ENV=${ENV:-.env}
@@ -27,7 +27,7 @@ Commands:
   run <test-name>     Run a specific test (e.g., mongodb)
   reset <test-name>   Reset test state without destroying machines
   destroy             Tear down all test machines
-  test                Run basic health checks on machines
+  status              Run basic health checks on machines
   update <nodes>      Update node configuration
   upgrade <nodes>     Upgrade NixOS version on nodes
   
@@ -60,7 +60,7 @@ Examples:
 EOF
 )
 
-if [[ "create upgrade run reset destroy update test ssh cmd action port-forward" == *"$1"* ]]; then
+if [[ "create upgrade run reset destroy update status ssh cmd action port-forward" == *"$1"* ]]; then
   CMD="$1"
   shift
 else
@@ -210,7 +210,7 @@ if [ "$CMD" = "destroy" ]; then
   exit 0
 fi
 
-if [ "$CMD" = "test" ]; then
+if [ "$CMD" = "status" ]; then
   testFleet "$TEST_NODES"
   exit 0
 fi
