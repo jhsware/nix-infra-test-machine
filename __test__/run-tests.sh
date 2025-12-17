@@ -249,7 +249,7 @@ if [ "$CMD" = "ssh" ]; then
     echo "Usage: $0 ssh --env=$ENV [node]"
     exit 1
   fi
-  HCLOUD_TOKEN=$HCLOUD_TOKEN hcloud server ssh $REST -i "$WORK_DIR/ssh/$SSH_KEY"
+  $NIX_INFRA fleet ssh -d "$WORK_DIR" --env="$ENV" --target="$REST"
   exit 0
 fi
 
