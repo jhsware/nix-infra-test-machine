@@ -358,8 +358,8 @@ EOF
     printf '%02dh:%02dm:%02ds' $((_secs/3600)) $((_secs%3600/60)) $((_secs%60))
   }
   printf '+ provision  %s\n' "$(printTime $_start $_provision)"
-  printf '+ init       %s\n' $(printTime $_provision $_init_nodes)
-  printf '+ test       %s\n' $(printTime $_init_nodes $_end)
-  printf '= SUM %s\n' $(printTime $_start $_end)
+  printf '+ init       %s\n' "$(printTime $_provision $_init_nodes)"
+  printf '+ test       %s\n' "$(printTime $_init_nodes $_end)"
+  printf '= SUM %s\n' "$(printTime $_start $_end)"
   echo "***************** DONE *******************"
 fi
