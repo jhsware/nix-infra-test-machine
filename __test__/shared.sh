@@ -78,8 +78,8 @@ checkNixos() {
       echo "  ✓ nixos: ok ($node)"
     else
       echo "  ✗ nixos: fail ($node)"
-      if [ -n "$output" ]; then
-        echo "$output"
+      if [ -n "$output" ] && [[ "$output" == ERROR:* ]]; then
+        echo "    $output"
       fi
       _nixos_fail="true"
     fi
@@ -103,8 +103,8 @@ checkPodman() {
       echo "  ✓ podman: ok ($node)"
     else
       echo "  ✗ podman: not installed or not running ($node)"
-      if [ -n "$output" ]; then
-        echo "$output"
+      if [ -n "$output" ] && [[ "$output" == ERROR:* ]]; then
+        echo "    $output"
       fi
       _failed="yes"
     fi
@@ -125,8 +125,8 @@ checkService() {
     return 0
   else
     echo "  ✗ $SERVICE: inactive ($NODE)"
-    if [ -n "$output" ]; then
-      echo "$output"
+    if [ -n "$output" ] && [[ "$output" == ERROR:* ]]; then
+      echo "    $output"
     fi
     return 1
   fi
@@ -162,8 +162,8 @@ checkHttpEndpoint() {
     return 0
   else
     echo "  ✗ HTTP $URL: expected '$EXPECTED' ($NODE)"
-    if [ -n "$output" ]; then
-      echo "    Got: $output"
+    if [ -n "$output" ] && [[ "$output" == ERROR:* ]]; then
+      echo "    $output"
     fi
     return 1
   fi
@@ -181,8 +181,8 @@ checkTcpPort() {
     return 0
   else
     echo "  ✗ TCP $HOST:$PORT: closed ($NODE)"
-    if [ -n "$output" ]; then
-      echo "$output"
+    if [ -n "$output" ] && [[ "$output" == ERROR:* ]]; then
+      echo "    $output"
     fi
     return 1
   fi
@@ -238,8 +238,8 @@ waitForContainer() {
   done
   
   echo "  ✗ Container $CONTAINER did not start within ${TIMEOUT}s"
-  if [ -n "$last_output" ]; then
-    echo "    Last status: $last_output"
+  if [ -n "$last_output" ] && [[ "$last_output" == ERROR:* ]]; then
+    echo "    $last_output"
   fi
   return 1
 }
@@ -264,8 +264,8 @@ waitForService() {
   done
   
   echo "  ✗ Service $SERVICE did not become active within ${TIMEOUT}s"
-  if [ -n "$last_output" ]; then
-    echo "    Last status: $last_output"
+  if [ -n "$last_output" ] && [[ "$last_output" == ERROR:* ]]; then
+    echo "    $last_output"
   fi
   return 1
 }
