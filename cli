@@ -16,7 +16,7 @@ if ! command -v nix-infra >/dev/null 2>&1; then
   exit 1
 fi
 
-__help_text__=$(cat <<EOF
+read -r -d '' __help_text__ <<EOF || true
 nix-infra-machine CLI
 =====================
 
@@ -71,7 +71,6 @@ Examples:
   # Launch Claude with dev MCP
   $0 claude-dev --env=.env
 EOF
-)
 
 if [[ "create upgrade rollback destroy update ssh cmd action port-forward claude claude-dev" == *"$1"* ]]; then
   CMD="$1"
