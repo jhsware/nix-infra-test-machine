@@ -72,11 +72,15 @@ checkNixos() {
   local _nixos_fail=""
 
   for node in $NODES; do
-    local result=$(cmd "$node" "uname -a" 2>/dev/null)
+    local output=$(cmd "$node" "uname -a" 2>&1)
+    local result="$output"
     if [[ "$result" == *"NixOS"* ]]; then
       echo "  ✓ nixos: ok ($node)"
     else
       echo "  ✗ nixos: fail ($node)"
+      if [ -n "$output" ]; then
+        echo "$output"
+      fi
       _nixos_fail="true"
     fi
   done
@@ -93,11 +97,15 @@ checkPodman() {
   local _failed=""
 
   for node in $NODES; do
-    local result=$(cmd "$node" "podman --version" 2>/dev/null)
+    local output=$(cmd "$node" "podman --version" 2>&1)
+    local result="$output"
     if [[ "$result" == *"podman version"* ]]; then
       echo "  ✓ podman: ok ($node)"
     else
       echo "  ✗ podman: not installed or not running ($node)"
+      if [ -n "$output" ]; then
+        echo "$output"
+      fi
       _failed="yes"
     fi
   done
@@ -110,12 +118,16 @@ checkPodman() {
 checkService() {
   local NODE="$1"
   local SERVICE="$2"
-  local result=$(cmd "$NODE" "systemctl is-active $SERVICE" 2>/dev/null)
+  local output=$(cmd "$NODE" "systemctl is-active $SERVICE" 2>&1)
+  local result="$output"
   if [[ "$result" == *"active"* ]]; then
     echo "  ✓ $SERVICE: active ($NODE)"
     return 0
   else
     echo "  ✗ $SERVICE: inactive ($NODE)"
+    if [ -n "$output" ]; then
+      echo "$output"
+    fi
     return 1
   fi
 }
@@ -128,7 +140,7 @@ checkServiceOnNodes() {
   local _failed=""
 
   for node in $NODES; do
-    if ! checkService "$node" "$SERVICE" 2>/dev/null; then
+    if ! checkService "$node" "$SERVICE"; then
       _failed="yes"
     fi
   done
@@ -143,12 +155,16 @@ checkHttpEndpoint() {
   local URL="$2"
   local EXPECTED="$3"
   
-  local result=$(cmd "$NODE" "curl -s --max-time 5 '$URL'" 2>/dev/null)
+  local output=$(cmd "$NODE" "curl -s --max-time 5 '$URL'" 2>&1)
+  local result="$output"
   if [[ "$result" == *"$EXPECTED"* ]]; then
     echo "  ✓ HTTP $URL: ok ($NODE)"
     return 0
   else
-    echo "  ✗ HTTP $URL: expected '$EXPECTED', got '$result' ($NODE)"
+    echo "  ✗ HTTP $URL: expected '$EXPECTED' ($NODE)"
+    if [ -n "$output" ]; then
+      echo "    Got: $output"
+    fi
     return 1
   fi
 }
@@ -158,12 +174,16 @@ checkTcpPort() {
   local HOST="$2"
   local PORT="$3"
   
-  local result=$(cmd "$NODE" "nc -zv $HOST $PORT 2>&1" 2>/dev/null)
+  local output=$(cmd "$NODE" "nc -zv $HOST $PORT 2>&1")
+  local result="$output"
   if [[ "$result" == *"succeeded"* ]] || [[ "$result" == *"open"* ]] || [[ "$result" == *"Connected"* ]]; then
     echo "  ✓ TCP $HOST:$PORT: open ($NODE)"
     return 0
   else
     echo "  ✗ TCP $HOST:$PORT: closed ($NODE)"
+    if [ -n "$output" ]; then
+      echo "$output"
+    fi
     return 1
   fi
 }
@@ -205,8 +225,10 @@ waitForContainer() {
   
   echo "Waiting for container $CONTAINER on $NODE (timeout: ${TIMEOUT}s)..."
   local elapsed=0
+  local last_output=""
   while [ $elapsed -lt $TIMEOUT ]; do
-    local status=$(cmd "$NODE" "podman ps --filter name=$CONTAINER --format '{{.Status}}'" 2>/dev/null)
+    last_output=$(cmd "$NODE" "podman ps --filter name=$CONTAINER --format '{{.Status}}'" 2>&1)
+    local status="$last_output"
     if [[ "$status" == *"Up"* ]]; then
       echo "  ✓ Container $CONTAINER is running"
       return 0
@@ -216,6 +238,9 @@ waitForContainer() {
   done
   
   echo "  ✗ Container $CONTAINER did not start within ${TIMEOUT}s"
+  if [ -n "$last_output" ]; then
+    echo "    Last status: $last_output"
+  fi
   return 1
 }
 
@@ -226,8 +251,10 @@ waitForService() {
   
   echo "Waiting for service $SERVICE on $NODE (timeout: ${TIMEOUT}s)..."
   local elapsed=0
+  local last_output=""
   while [ $elapsed -lt $TIMEOUT ]; do
-    local status=$(cmd "$NODE" "systemctl is-active $SERVICE" 2>/dev/null)
+    last_output=$(cmd "$NODE" "systemctl is-active $SERVICE" 2>&1)
+    local status="$last_output"
     if [[ "$status" == *"active"* ]]; then
       echo "  ✓ Service $SERVICE is active"
       return 0
@@ -237,6 +264,9 @@ waitForService() {
   done
   
   echo "  ✗ Service $SERVICE did not become active within ${TIMEOUT}s"
+  if [ -n "$last_output" ]; then
+    echo "    Last status: $last_output"
+  fi
   return 1
 }
 
@@ -246,7 +276,7 @@ getContainerLogs() {
   local LINES="${3:-50}"
   
   echo "--- Container logs for $CONTAINER on $NODE ---"
-  cmd "$NODE" "podman logs --tail $LINES $CONTAINER" 2>/dev/null
+  cmd "$NODE" "podman logs --tail $LINES $CONTAINER" 2>&1
   echo "--- End of logs ---"
 }
 
@@ -256,6 +286,6 @@ getServiceLogs() {
   local LINES="${3:-50}"
   
   echo "--- Service logs for $SERVICE on $NODE ---"
-  cmd "$NODE" "journalctl -n $LINES -u $SERVICE" 2>/dev/null
+  cmd "$NODE" "journalctl -n $LINES -u $SERVICE" 2>&1
   echo "--- End of logs ---"
 }
