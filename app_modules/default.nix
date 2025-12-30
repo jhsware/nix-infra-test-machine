@@ -8,5 +8,6 @@
     ./opensearch
     ./elasticsearch
     ./minio
+    ./nginx
   ];
 }
