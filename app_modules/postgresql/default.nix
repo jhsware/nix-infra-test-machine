@@ -51,12 +51,12 @@ in
     services.postgresql = {
       enable = true;
       package = cfg.package;
-      port = cfg.bindToPort;
       enableTCPIP = true;
       
       authentication = cfg.authentication;
 
       settings = {
+        port = lib.mkDefault cfg.bindToPort;
         listen_addresses = lib.mkDefault cfg.bindToIp;
       };
 

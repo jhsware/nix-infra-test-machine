@@ -1,11 +1,29 @@
 { config, pkgs, lib, ... }: {
   # ==========================================================================
-  # Redis for Nextcloud Caching
+  # PostgreSQL Database for Nextcloud (using infrastructure module)
   # ==========================================================================
-  config.services.redis.servers.nextcloud = {
+  config.infrastructure.postgresql = {
     enable = true;
-    port = 6379;
-    bind = "127.0.0.1";
+    bindToIp = "127.0.0.1";
+    bindToPort = 5432;
+    initialDatabases = [ "nextcloud" ];
+    authentication = ''
+      # TYPE  DATABASE        USER            ADDRESS                 METHOD
+      local   all             all                                     trust
+      host    all             all             127.0.0.1/32            trust
+      host    all             all             ::1/128                 trust
+    '';
+  };
+
+  # ==========================================================================
+  # Redis for Nextcloud Caching (using infrastructure module)
+  # ==========================================================================
+  config.infrastructure.redis = {
+    enable = true;
+    servers.nextcloud = {
+      bindToIp = "127.0.0.1";
+      bindToPort = 6379;
+    };
   };
 
   # ==========================================================================
@@ -27,7 +45,7 @@
       name = "nextcloud";
       user = "nextcloud";
       host = "/run/postgresql";
-      createLocally = true;  # Let Nextcloud module handle PostgreSQL setup
+      createLocally = true;  # Creates the nextcloud user and grants permissions
     };
 
     caching = {
@@ -110,7 +128,5 @@
   config.environment.systemPackages = with pkgs; [
     curl
     jq
-    postgresql
-    redis
   ];
 }
