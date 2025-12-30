@@ -57,7 +57,7 @@ in
       authentication = cfg.authentication;
 
       settings = {
-        listen_addresses = cfg.bindToIp;
+        listen_addresses = lib.mkDefault cfg.bindToIp;
       };
 
       # Create initial databases if specified

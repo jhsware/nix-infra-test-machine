@@ -9,5 +9,6 @@
     ./elasticsearch
     ./minio
     ./nginx
+    ./nextcloud
   ];
 }
