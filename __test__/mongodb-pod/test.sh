@@ -42,7 +42,7 @@ echo ""
 
 # Deploy the mongodb configuration to test nodes
 echo "Step 1: Deploying MongoDB configuration..."
-$NIX_INFRA fleet deploy-apps -d "$WORK_DIR" --batch --env="$WORK_DIR/.env" \
+$NIX_INFRA fleet deploy-apps -d "$WORK_DIR" --batch --env="$ENV" \
   --test-dir="$WORK_DIR/$TEST_DIR" \
   --target="$TEST_NODES"
 

@@ -192,8 +192,8 @@ destroyFleet() {
 
   $NIX_INFRA ssh-key remove -d "$WORK_DIR" --batch --name="$SSH_KEY"
 
-  echo "Removing /ssh /secrets..."
-  rm -rf "$WORK_DIR/ssh" "$WORK_DIR/secrets"
+  echo "Remove /secrets..."
+  rm -rf "$WORK_DIR/secrets"
 }
 
 cleanupOnFail() {
@@ -219,13 +219,13 @@ if [ "$CMD" = "update" ]; then
     echo "Usage: $0 update --env=$ENV [node1 node2 ...]"
     exit 1
   fi
-  $NIX_INFRA fleet update -d "$WORK_DIR" --batch --env="$WORK_DIR/.env" \
+  $NIX_INFRA fleet update -d "$WORK_DIR" --batch --env="$ENV" \
     --nixos-version="$NIXOS_VERSION" \
     --node-module="node_types/standalone_machine.nix" \
     --target="$REST" \
     --rebuild
   
-  $NIX_INFRA fleet deploy-apps -d "$WORK_DIR" --batch --env="$WORK_DIR/.env" \
+  $NIX_INFRA fleet deploy-apps -d "$WORK_DIR" --batch --env="$ENV" \
     --target="$REST"
   $NIX_INFRA fleet cmd -d "$WORK_DIR" --target="$REST" "nixos-rebuild switch --fast"
   exit 0
@@ -284,7 +284,7 @@ if [ "$CMD" = "port-forward" ]; then
   IFS=: read LOCAL_PORT REMOTE_PORT <<< "$PORT_MAPPING"
   IFS=$OLD_IFS
 
-  $NIX_INFRA fleet port-forward -d "$WORK_DIR" --env="$WORK_DIR/.env" \
+  $NIX_INFRA fleet port-forward -d "$WORK_DIR" --env="$ENV" \
     --target="$TARGET" \
     --local-port="$LOCAL_PORT" \
     --remote-port="$REMOTE_PORT"
@@ -296,6 +296,11 @@ fi
 # ============================================================================
 
 if [ "$CMD" = "create" ]; then
+  if [ -d "$WORK_DIR/secrets" ]; then
+    echo "Found existing ./secrets, this appears to be a live project. Creating a test environment may destroy it."
+    exit 1
+  fi
+
   if [ ! -f "$ENV" ]; then
     read -r -d '' env <<EOF || true
 # NOTE: The following secrets are required for various operations
@@ -319,19 +324,18 @@ EOF
   ssh-add "$WORK_DIR/ssh/$SSH_KEY"
   
   echo "*** Provisioning NixOS $NIXOS_VERSION ***"
-
-  $NIX_INFRA fleet provision -d "$WORK_DIR" --batch --env="$WORK_DIR/.env" \
+  $NIX_INFRA fleet provision -d "$WORK_DIR" --batch --env="$ENV" \
       --nixos-version="$NIXOS_VERSION" \
       --ssh-key=$SSH_KEY \
       --location=hel1 \
       --machine-type=cpx21 \
       --node-names="$TEST_NODES"
 
-  cleanupOnFail $? "ERROR: Provisioning failed! Cleaning up..."
+  cleanupOnFail $? "WARNING: Provisioning failed! Cleaning up..."
 
   _provision=$(date +%s)
 
-  $NIX_INFRA fleet init-machine -d "$WORK_DIR" --batch --env="$WORK_DIR/.env" \
+  $NIX_INFRA fleet init-machine -d "$WORK_DIR" --batch --env="$ENV" \
       --nixos-version="$NIXOS_VERSION" \
       --target="$TEST_NODES" \
       --node-module="node_types/standalone_machine.nix"
