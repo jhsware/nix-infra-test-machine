@@ -5,5 +5,7 @@
     ./postgresql
     ./mariadb
     ./redis
+    ./opensearch
+    ./keydb
   ];
 }
