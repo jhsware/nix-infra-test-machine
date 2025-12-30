@@ -1,13 +1,13 @@
 { config, pkgs, lib, ... }:
 let
-  appName = "postgres";
+  appName = "postgresql";
   appPort = 5432;
 
   cfg = config.infrastructure.${appName};
 in
 {
   options.infrastructure.${appName} = {
-    enable = lib.mkEnableOption "infrastructure.postgres";
+    enable = lib.mkEnableOption "infrastructure.postgresql";
 
     package = lib.mkOption {
       type = lib.types.package;

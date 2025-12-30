@@ -40,7 +40,7 @@ echo "PostgreSQL Standalone Test"
 echo "========================================"
 echo ""
 
-# Deploy the postgres configuration to test nodes
+# Deploy the postgresql configuration to test nodes
 echo "Step 1: Deploying PostgreSQL configuration..."
 $NIX_INFRA fleet deploy-apps -d "$WORK_DIR" --batch --env="$ENV" \
   --test-dir="$WORK_DIR/$TEST_DIR" \
