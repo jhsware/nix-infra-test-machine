@@ -306,7 +306,7 @@ if [ "$CMD" = "create" ]; then
       --machine-type="$MACHINE_TYPE" \
       --node-names="$TARGET"
 
-  cleanupOnFail $? "ERROR: Provisioning failed! Cleaning up..."
+  cleanupOnFail $? "WARNING: Provisioning failed! Cleaning up..."
 
   _provision=$(date +%s)
 
