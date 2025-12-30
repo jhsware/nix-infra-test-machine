@@ -10,5 +10,6 @@
     ./minio
     ./nginx
     ./nextcloud
+    ./home-assistant
   ];
 }
