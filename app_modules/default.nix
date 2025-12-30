@@ -7,5 +7,6 @@
     ./redis
     ./opensearch
     ./elasticsearch
+    ./minio
   ];
 }
