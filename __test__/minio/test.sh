@@ -2,10 +2,11 @@
 # MinIO standalone test for nix-infra-machine
 #
 # This test:
-# 1. Deploys MinIO as a native service on custom ports 9002/9003
-# 2. Verifies the service is running
-# 3. Tests basic MinIO operations (bucket/object operations)
-# 4. Cleans up on teardown
+# 1. Creates MinIO credentials secret on target nodes
+# 2. Deploys MinIO as a native service on custom ports 9002/9003
+# 3. Verifies the service is running
+# 4. Tests basic MinIO operations (bucket/object operations)
+# 5. Cleans up on teardown
 
 # Colors
 GREEN='\033[0;32m'
@@ -17,6 +18,7 @@ MINIO_API_PORT=9002
 MINIO_CONSOLE_PORT=9003
 MINIO_USER="testadmin"
 MINIO_PASSWORD="testpassword123"
+MINIO_SECRET_NAME="minio-root-credentials"
 
 # Handle teardown command
 if [ "$CMD" = "teardown" ]; then
@@ -29,6 +31,10 @@ if [ "$CMD" = "teardown" ]; then
   # Clean up data directory
   $NIX_INFRA fleet cmd -d "$WORK_DIR" --target="$TEST_NODES" \
     'rm -rf /var/lib/minio'
+  
+  # Clean up secrets
+  $NIX_INFRA fleet cmd -d "$WORK_DIR" --target="$TEST_NODES" \
+    "rm -f /run/secrets/$MINIO_SECRET_NAME"
   
   echo "MinIO teardown complete"
   return 0
@@ -46,15 +52,39 @@ echo "MinIO Standalone Test (API: $MINIO_API_PORT, Console: $MINIO_CONSOLE_PORT)
 echo "========================================"
 echo ""
 
+# Create MinIO credentials secret on target nodes
+echo "Step 1: Creating MinIO credentials secret on nodes..."
+$NIX_INFRA fleet cmd -d "$WORK_DIR" --target="$TEST_NODES" \
+  "mkdir -p /run/secrets && cat > /run/secrets/$MINIO_SECRET_NAME << 'EOF'
+MINIO_ROOT_USER=$MINIO_USER
+MINIO_ROOT_PASSWORD=$MINIO_PASSWORD
+EOF"
+
+# Verify secret was created
+echo "Verifying secret creation..."
+for node in $TEST_NODES; do
+  secret_check=$(cmd "$node" "cat /run/secrets/$MINIO_SECRET_NAME 2>/dev/null | head -1")
+  if [[ "$secret_check" == *"MINIO_ROOT_USER"* ]]; then
+    echo -e "  ${GREEN}✓${NC} Secret created on $node [pass]"
+  else
+    echo -e "  ${RED}✗${NC} Secret creation failed on $node [fail]"
+  fi
+done
+
 # Deploy the minio configuration to test nodes
-echo "Step 1: Deploying MinIO configuration..."
+echo ""
+echo "Step 2: Deploying MinIO configuration..."
 $NIX_INFRA fleet deploy-apps -d "$WORK_DIR" --batch --env="$ENV" \
   --test-dir="$WORK_DIR/$TEST_DIR" \
   --target="$TEST_NODES"
 
 # Apply the configuration
-echo "Step 2: Applying NixOS configuration..."
+echo "Step 3: Applying NixOS configuration..."
 $NIX_INFRA fleet cmd -d "$WORK_DIR" --target="$TEST_NODES" "nixos-rebuild switch --fast"
+
+# Restart minio to pick up the secret
+echo "Restarting MinIO service to pick up secret..."
+$NIX_INFRA fleet cmd -d "$WORK_DIR" --target="$TEST_NODES" "systemctl restart minio"
 
 _setup=$(date +%s)
 
@@ -63,7 +93,7 @@ _setup=$(date +%s)
 # ============================================================================
 
 echo ""
-echo "Step 3: Verifying MinIO deployment..."
+echo "Step 4: Verifying MinIO deployment..."
 echo ""
 
 # Wait for service to start
@@ -125,7 +155,7 @@ done
 # ============================================================================
 
 echo ""
-echo "Step 4: Running functional tests..."
+echo "Step 5: Running functional tests..."
 echo ""
 
 # Test MinIO connection and basic operations

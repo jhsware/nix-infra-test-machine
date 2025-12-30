@@ -1,19 +1,13 @@
 { config, pkgs, lib, ... }: {
-  # Create credentials file for MinIO
-  config.environment.etc."minio/credentials".text = ''
-    MINIO_ROOT_USER=testadmin
-    MINIO_ROOT_PASSWORD=testpassword123
-  '';
-
   # Enable MinIO standalone instance using native NixOS service
-  config.services.minio = {
+  config.infrastructure.minio = {
     enable = true;
-    package = pkgs.minio;
-    listenAddress = "127.0.0.1:9002";
-    consoleAddress = "127.0.0.1:9003";
+    bindToIp = "127.0.0.1";
+    apiPort = 9002;
+    consolePort = 9003;
     dataDir = [ "/var/lib/minio/data" ];
     configDir = "/var/lib/minio/config";
-    rootCredentialsFile = "/etc/minio/credentials";
+    rootCredentialsSecretName = "minio-root-credentials";
     region = "us-east-1";
     browser = true;
   };

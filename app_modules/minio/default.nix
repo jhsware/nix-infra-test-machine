@@ -48,27 +48,18 @@ in
       default = "/var/lib/minio/config";
     };
 
-    rootCredentialsFile = lib.mkOption {
-      type = lib.types.nullOr lib.types.path;
+    rootCredentialsSecretName = lib.mkOption {
+      type = lib.types.str;
       description = ''
-        File containing root credentials in the format:
+        Name of the secret containing root credentials.
+        The secret file should contain:
         MINIO_ROOT_USER=<user>
         MINIO_ROOT_PASSWORD=<password>
-        If null, default credentials will be created.
+        
+        The secret will be loaded from:
+        /run/secrets/<secretName>
       '';
-      default = null;
-    };
-
-    rootUser = lib.mkOption {
-      type = lib.types.str;
-      description = "Root user for MinIO (used if rootCredentialsFile is null).";
-      default = "minioadmin";
-    };
-
-    rootPassword = lib.mkOption {
-      type = lib.types.str;
-      description = "Root password for MinIO (used if rootCredentialsFile is null). Should be at least 8 characters.";
-      default = "minioadmin";
+      example = "minio-root-credentials";
     };
 
     region = lib.mkOption {
@@ -85,12 +76,6 @@ in
   };
 
   config = lib.mkIf cfg.enable {
-    # Create credentials file if not provided
-    environment.etc."minio/credentials".text = lib.mkIf (cfg.rootCredentialsFile == null) ''
-      MINIO_ROOT_USER=${cfg.rootUser}
-      MINIO_ROOT_PASSWORD=${cfg.rootPassword}
-    '';
-
     services.minio = {
       enable = true;
       package = cfg.package;
@@ -98,9 +83,7 @@ in
       consoleAddress = "${cfg.bindToIp}:${toString cfg.consolePort}";
       dataDir = cfg.dataDir;
       configDir = cfg.configDir;
-      rootCredentialsFile = if cfg.rootCredentialsFile != null 
-                            then cfg.rootCredentialsFile 
-                            else "/etc/minio/credentials";
+      rootCredentialsFile = "/run/secrets/${cfg.rootCredentialsSecretName}";
       region = cfg.region;
       browser = cfg.browser;
     };
