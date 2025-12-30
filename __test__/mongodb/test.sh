@@ -2,7 +2,7 @@
 # MongoDB standalone test for nix-infra-machine
 #
 # This test:
-# 1. Deploys MongoDB as a native service
+# 1. Deploys MongoDB as a native service on custom port 27018
 # 2. Verifies the service is running
 # 3. Tests basic MongoDB operations (insert/query)
 # 4. Cleans up on teardown
@@ -11,6 +11,9 @@
 GREEN='\033[0;32m'
 RED='\033[0;31m'
 NC='\033[0m' # No Color
+
+# Custom port for testing
+MONGODB_PORT=27018
 
 # Handle teardown command
 if [ "$CMD" = "teardown" ]; then
@@ -36,7 +39,7 @@ _start=$(date +%s)
 
 echo ""
 echo "========================================"
-echo "MongoDB Standalone Test"
+echo "MongoDB Standalone Test (port $MONGODB_PORT)"
 echo "========================================"
 echo ""
 
@@ -92,13 +95,13 @@ done
 
 # Check if MongoDB port is listening
 echo ""
-echo "Checking MongoDB port (27017)..."
+echo "Checking MongoDB port ($MONGODB_PORT)..."
 for node in $TEST_NODES; do
-  port_check=$(cmd "$node" "ss -tlnp | grep 27017")
-  if [[ "$port_check" == *"27017"* ]]; then
-    echo -e "  ${GREEN}✓${NC} Port 27017 is listening ($node) [pass]"
+  port_check=$(cmd "$node" "ss -tlnp | grep $MONGODB_PORT")
+  if [[ "$port_check" == *"$MONGODB_PORT"* ]]; then
+    echo -e "  ${GREEN}✓${NC} Port $MONGODB_PORT is listening ($node) [pass]"
   else
-    echo -e "  ${RED}✗${NC} Port 27017 is not listening ($node) [fail]"
+    echo -e "  ${RED}✗${NC} Port $MONGODB_PORT is not listening ($node) [fail]"
   fi
 done
 
@@ -116,7 +119,7 @@ for node in $TEST_NODES; do
   
   # Insert a test document
   echo "  Inserting test document..."
-  insert_result=$(cmd "$node" "mongosh --quiet --eval 'db.test.insertOne({name: \"test\", value: 42})'")
+  insert_result=$(cmd "$node" "mongosh --port $MONGODB_PORT --quiet --eval 'db.test.insertOne({name: \"test\", value: 42})'")
   if [[ "$insert_result" == *"acknowledged"* ]] || [[ "$insert_result" == *"insertedId"* ]]; then
     echo -e "  ${GREEN}✓${NC} Insert operation successful [pass]"
   else
@@ -125,7 +128,7 @@ for node in $TEST_NODES; do
   
   # Query the test document
   echo "  Querying test document..."
-  query_result=$(cmd "$node" "mongosh --quiet --eval 'db.test.findOne({name: \"test\"})'")
+  query_result=$(cmd "$node" "mongosh --port $MONGODB_PORT --quiet --eval 'db.test.findOne({name: \"test\"})'")
   if [[ "$query_result" == *"value"* ]] && [[ "$query_result" == *"42"* ]]; then
     echo -e "  ${GREEN}✓${NC} Query operation successful [pass]"
   else
@@ -134,7 +137,7 @@ for node in $TEST_NODES; do
   
   # Test database listing
   echo "  Listing databases..."
-  db_list=$(cmd "$node" "mongosh --quiet --eval 'db.adminCommand({listDatabases: 1}).databases.map(d => d.name)'")
+  db_list=$(cmd "$node" "mongosh --port $MONGODB_PORT --quiet --eval 'db.adminCommand({listDatabases: 1}).databases.map(d => d.name)'")
   if [[ "$db_list" == *"admin"* ]]; then
     echo -e "  ${GREEN}✓${NC} Database listing successful [pass]"
   else
@@ -143,7 +146,7 @@ for node in $TEST_NODES; do
   
   # Clean up test data
   echo "  Cleaning up test data..."
-  cmd "$node" "mongosh --quiet --eval 'db.test.drop()'" > /dev/null 2>&1
+  cmd "$node" "mongosh --port $MONGODB_PORT --quiet --eval 'db.test.drop()'" > /dev/null 2>&1
   echo -e "  ${GREEN}✓${NC} Test data cleaned up [pass]"
 done
 

@@ -4,6 +4,9 @@
     enable = true;
     package = pkgs.mongodb-ce;
     bind_ip = "127.0.0.1";
+    extraConfig = ''
+      net.port: 27018
+    '';
   };
 
   # Install mongosh for CLI access
@@ -12,5 +15,5 @@
   ];
 
   # Open firewall for MongoDB (only if external access needed)
-  # config.networking.firewall.allowedTCPPorts = [ 27017 ];
+  # config.networking.firewall.allowedTCPPorts = [ 27018 ];
 }

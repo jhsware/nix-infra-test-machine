@@ -1,7 +1,7 @@
 { config, pkgs, lib, ... }:
 let
   appName = "mongodb";
-  appPort = 27017;
+  defaultPort = 27017;
 
   cfg = config.infrastructure.${appName};
 in
@@ -25,7 +25,7 @@ in
     bindToPort = lib.mkOption {
       type = lib.types.int;
       description = "Port to bind.";
-      default = appPort;
+      default = defaultPort;
     };
   };
 
@@ -34,8 +34,9 @@ in
       enable = true;
       package = cfg.package;
       bind_ip = cfg.bindToIp;
-      # Note: NixOS mongodb module doesn't have a direct port option,
-      # it uses the default 27017. For custom ports, use extraConfig.
+      extraConfig = lib.mkIf (cfg.bindToPort != defaultPort) ''
+        net.port: ${toString cfg.bindToPort}
+      '';
     };
 
     # Install mongosh for CLI access
