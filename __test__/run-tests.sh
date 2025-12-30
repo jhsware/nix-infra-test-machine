@@ -9,13 +9,6 @@ ENV=${ENV:-.env}
 SECRETS_PWD=${SECRETS_PWD:-my_secrets_password}
 TEST_NODES=${TEST_NODES:-"testnode001"}
 
-# Check for nix-infra CLI if using default
-if [ "$NIX_INFRA" = "nix-infra" ] && ! command -v nix-infra >/dev/null 2>&1; then
-  echo "The 'nix-infra' CLI is required for this script to work."
-  echo "Visit https://github.com/jhsware/nix-infra for installation instructions."
-  exit 1
-fi
-
 read -r -d '' __help_text__ <<EOF || true
 nix-infra-machine Test Runner
 =============================
@@ -97,6 +90,13 @@ done
 
 if [ "$ENV" != "" ] && [ -f "$ENV" ]; then
   source $ENV
+fi
+
+# Check for nix-infra CLI if using default
+if [ "$NIX_INFRA" = "nix-infra" ] && ! command -v nix-infra >/dev/null 2>&1; then
+  echo "The 'nix-infra' CLI is required for this script to work."
+  echo "Visit https://github.com/jhsware/nix-infra for installation instructions."
+  exit 1
 fi
 
 if [ -z "$HCLOUD_TOKEN" ]; then
