@@ -1,19 +1,20 @@
 { config, pkgs, lib, ... }: {
-  # Enable Redis standalone instance using native NixOS service
-  config.services.redis.package = pkgs.redis;
-  
-  config.services.redis.servers."" = {
+  # Enable Redis using infrastructure module with multiple servers
+  config.infrastructure.redis = {
     enable = true;
-    bind = "127.0.0.1";
-    port = 6380;
-    databases = 16;
+    servers = {
+      # Default server (creates redis.service)
+      "" = {
+        bindToIp = "127.0.0.1";
+        bindToPort = 6379;
+      };
+      # Named server for testing (creates redis-cache.service)
+      cache = {
+        bindToIp = "127.0.0.1";
+        bindToPort = 6380;
+        maxMemory = "64mb";
+        maxMemoryPolicy = "allkeys-lru";
+      };
+    };
   };
-
-  # Install redis-cli for CLI access
-  config.environment.systemPackages = with pkgs; [
-    redis
-  ];
-
-  # Open firewall for Redis (only if external access needed)
-  # config.networking.firewall.allowedTCPPorts = [ 6380 ];
 }

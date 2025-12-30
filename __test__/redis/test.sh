@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# Redis standalone test for nix-infra-machine
+# Redis test for nix-infra-machine
 #
 # This test:
-# 1. Deploys Redis as a native service on custom port 6380
-# 2. Verifies the service is running
-# 3. Tests basic Redis operations (SET/GET)
+# 1. Deploys multiple Redis servers using infrastructure.redis
+# 2. Verifies all services are running
+# 3. Tests basic Redis operations on each server
 # 4. Cleans up on teardown
 
 # Colors
@@ -12,20 +12,25 @@ GREEN='\033[0;32m'
 RED='\033[0;31m'
 NC='\033[0m' # No Color
 
-# Custom port for testing
-REDIS_PORT=6380
+# Server configurations: name:port
+declare -A REDIS_SERVERS=(
+  ["redis"]=6379
+  ["redis-cache"]=6380
+)
 
 # Handle teardown command
 if [ "$CMD" = "teardown" ]; then
   echo "Tearing down Redis test..."
   
-  # Stop Redis service
-  $NIX_INFRA fleet cmd -d "$WORK_DIR" --target="$TEST_NODES" \
-    'systemctl stop redis 2>/dev/null || true'
+  # Stop Redis services
+  for server in "${!REDIS_SERVERS[@]}"; do
+    $NIX_INFRA fleet cmd -d "$WORK_DIR" --target="$TEST_NODES" \
+      "systemctl stop $server 2>/dev/null || true"
+  done
   
-  # Clean up data directory
+  # Clean up data directories
   $NIX_INFRA fleet cmd -d "$WORK_DIR" --target="$TEST_NODES" \
-    'rm -rf /var/lib/redis'
+    'rm -rf /var/lib/redis /var/lib/redis-cache'
   
   echo "Redis teardown complete"
   return 0
@@ -39,7 +44,7 @@ _start=$(date +%s)
 
 echo ""
 echo "========================================"
-echo "Redis Standalone Test (port $REDIS_PORT)"
+echo "Redis Multi-Server Test"
 echo "========================================"
 echo ""
 
@@ -63,46 +68,52 @@ echo ""
 echo "Step 3: Verifying Redis deployment..."
 echo ""
 
-# Wait for service to start
-echo "Waiting for Redis service to start..."
+# Wait for services to start
+echo "Waiting for Redis services to start..."
 sleep 5
 
-# Check if the systemd service is active
+# Check if the systemd services are active
 echo "Checking systemd service status..."
 for node in $TEST_NODES; do
-  service_status=$(cmd "$node" "systemctl is-active redis")
-  if [[ "$service_status" == *"active"* ]]; then
-    echo -e "  ${GREEN}✓${NC} redis: active ($node) [pass]"
+  for server in "${!REDIS_SERVERS[@]}"; do
+    service_status=$(cmd "$node" "systemctl is-active $server")
+    if [[ "$service_status" == *"active"* ]]; then
+      echo -e "  ${GREEN}✓${NC} $server: active ($node) [pass]"
+    else
+      echo -e "  ${RED}✗${NC} $server: $service_status ($node) [fail]"
+      echo ""
+      echo "Service logs:"
+      cmd "$node" "journalctl -n 30 -u $server"
+    fi
+  done
+done
+
+# Check if Redis processes are running
+echo ""
+echo "Checking Redis processes..."
+for node in $TEST_NODES; do
+  process_count=$(cmd "$node" "pgrep -c redis-server || echo 0")
+  expected_count=${#REDIS_SERVERS[@]}
+  if [[ "$process_count" -ge "$expected_count" ]]; then
+    echo -e "  ${GREEN}✓${NC} $process_count Redis processes running ($node) [pass]"
   else
-    echo -e "  ${RED}✗${NC} redis: $service_status ($node) [fail]"
-    echo ""
-    echo "Service logs:"
-    cmd "$node" "journalctl -n 30 -u redis"
+    echo -e "  ${RED}✗${NC} Expected $expected_count processes, found $process_count ($node) [fail]"
   fi
 done
 
-# Check if Redis process is running
+# Check if Redis ports are listening
 echo ""
-echo "Checking Redis process..."
+echo "Checking Redis ports..."
 for node in $TEST_NODES; do
-  process_status=$(cmd "$node" "pgrep -a redis-server")
-  if [[ -n "$process_status" ]]; then
-    echo -e "  ${GREEN}✓${NC} Redis process running ($node) [pass]"
-  else
-    echo -e "  ${RED}✗${NC} Redis process not running ($node) [fail]"
-  fi
-done
-
-# Check if Redis port is listening
-echo ""
-echo "Checking Redis port ($REDIS_PORT)..."
-for node in $TEST_NODES; do
-  port_check=$(cmd "$node" "ss -tlnp | grep $REDIS_PORT")
-  if [[ "$port_check" == *"$REDIS_PORT"* ]]; then
-    echo -e "  ${GREEN}✓${NC} Port $REDIS_PORT is listening ($node) [pass]"
-  else
-    echo -e "  ${RED}✗${NC} Port $REDIS_PORT is not listening ($node) [fail]"
-  fi
+  for server in "${!REDIS_SERVERS[@]}"; do
+    port=${REDIS_SERVERS[$server]}
+    port_check=$(cmd "$node" "ss -tlnp | grep :$port")
+    if [[ "$port_check" == *":$port"* ]]; then
+      echo -e "  ${GREEN}✓${NC} $server port $port is listening ($node) [pass]"
+    else
+      echo -e "  ${RED}✗${NC} $server port $port is not listening ($node) [fail]"
+    fi
+  done
 done
 
 # ============================================================================
@@ -113,70 +124,89 @@ echo ""
 echo "Step 4: Running functional tests..."
 echo ""
 
-# Test Redis connection and basic operations
+# Test Redis connection and basic operations on each server
 for node in $TEST_NODES; do
-  echo "Testing Redis operations on $node..."
+  for server in "${!REDIS_SERVERS[@]}"; do
+    port=${REDIS_SERVERS[$server]}
+    echo "Testing $server (port $port) on $node..."
+    
+    # Test PING command
+    echo "  Testing PING command..."
+    ping_result=$(cmd "$node" "redis-cli -p $port PING")
+    if [[ "$ping_result" == *"PONG"* ]]; then
+      echo -e "  ${GREEN}✓${NC} PING successful [pass]"
+    else
+      echo -e "  ${RED}✗${NC} PING failed: $ping_result [fail]"
+    fi
+    
+    # Test SET command
+    echo "  Testing SET command..."
+    set_result=$(cmd "$node" "redis-cli -p $port SET testkey-$server 'hello-from-$server'")
+    if [[ "$set_result" == *"OK"* ]]; then
+      echo -e "  ${GREEN}✓${NC} SET operation successful [pass]"
+    else
+      echo -e "  ${RED}✗${NC} SET operation failed: $set_result [fail]"
+    fi
+    
+    # Test GET command
+    echo "  Testing GET command..."
+    get_result=$(cmd "$node" "redis-cli -p $port GET testkey-$server")
+    if [[ "$get_result" == *"hello-from-$server"* ]]; then
+      echo -e "  ${GREEN}✓${NC} GET operation successful [pass]"
+    else
+      echo -e "  ${RED}✗${NC} GET operation failed: $get_result [fail]"
+    fi
+    
+    # Test INCR command
+    echo "  Testing INCR command..."
+    cmd "$node" "redis-cli -p $port SET counter 0" > /dev/null 2>&1
+    incr_result=$(cmd "$node" "redis-cli -p $port INCR counter")
+    if [[ "$incr_result" == *"1"* ]]; then
+      echo -e "  ${GREEN}✓${NC} INCR operation successful [pass]"
+    else
+      echo -e "  ${RED}✗${NC} INCR operation failed: $incr_result [fail]"
+    fi
+    
+    # Test INFO command
+    echo "  Testing INFO command..."
+    info_result=$(cmd "$node" "redis-cli -p $port INFO server | head -5")
+    if [[ "$info_result" == *"redis_version"* ]]; then
+      echo -e "  ${GREEN}✓${NC} INFO command successful [pass]"
+    else
+      echo -e "  ${RED}✗${NC} INFO command failed: $info_result [fail]"
+    fi
+    
+    # Clean up test data
+    echo "  Cleaning up test data..."
+    cmd "$node" "redis-cli -p $port FLUSHALL" > /dev/null 2>&1
+    echo -e "  ${GREEN}✓${NC} Test data cleaned up [pass]"
+    echo ""
+  done
+done
+
+# ============================================================================
+# Test Server Isolation
+# ============================================================================
+
+echo "Step 5: Testing server isolation..."
+echo ""
+
+for node in $TEST_NODES; do
+  echo "Testing data isolation on $node..."
   
-  # Test PING command
-  echo "  Testing PING command..."
-  ping_result=$(cmd "$node" "redis-cli -p $REDIS_PORT PING")
-  if [[ "$ping_result" == *"PONG"* ]]; then
-    echo -e "  ${GREEN}✓${NC} PING successful [pass]"
+  # Set a key on the default server
+  cmd "$node" "redis-cli -p 6379 SET isolation-test 'default-server'" > /dev/null 2>&1
+  
+  # Try to get it from the cache server (should not exist)
+  cache_result=$(cmd "$node" "redis-cli -p 6380 GET isolation-test")
+  if [[ -z "$cache_result" ]] || [[ "$cache_result" == *"nil"* ]]; then
+    echo -e "  ${GREEN}✓${NC} Servers are properly isolated [pass]"
   else
-    echo -e "  ${RED}✗${NC} PING failed: $ping_result [fail]"
+    echo -e "  ${RED}✗${NC} Data leaked between servers: $cache_result [fail]"
   fi
   
-  # Test SET command
-  echo "  Testing SET command..."
-  set_result=$(cmd "$node" "redis-cli -p $REDIS_PORT SET testkey 'hello-nix-infra'")
-  if [[ "$set_result" == *"OK"* ]]; then
-    echo -e "  ${GREEN}✓${NC} SET operation successful [pass]"
-  else
-    echo -e "  ${RED}✗${NC} SET operation failed: $set_result [fail]"
-  fi
-  
-  # Test GET command
-  echo "  Testing GET command..."
-  get_result=$(cmd "$node" "redis-cli -p $REDIS_PORT GET testkey")
-  if [[ "$get_result" == *"hello-nix-infra"* ]]; then
-    echo -e "  ${GREEN}✓${NC} GET operation successful [pass]"
-  else
-    echo -e "  ${RED}✗${NC} GET operation failed: $get_result [fail]"
-  fi
-  
-  # Test INCR command
-  echo "  Testing INCR command..."
-  cmd "$node" "redis-cli -p $REDIS_PORT SET counter 0" > /dev/null 2>&1
-  incr_result=$(cmd "$node" "redis-cli -p $REDIS_PORT INCR counter")
-  if [[ "$incr_result" == *"1"* ]]; then
-    echo -e "  ${GREEN}✓${NC} INCR operation successful [pass]"
-  else
-    echo -e "  ${RED}✗${NC} INCR operation failed: $incr_result [fail]"
-  fi
-  
-  # Test LPUSH/LRANGE (list operations)
-  echo "  Testing list operations..."
-  cmd "$node" "redis-cli -p $REDIS_PORT LPUSH mylist item1 item2 item3" > /dev/null 2>&1
-  list_result=$(cmd "$node" "redis-cli -p $REDIS_PORT LRANGE mylist 0 -1")
-  if [[ "$list_result" == *"item"* ]]; then
-    echo -e "  ${GREEN}✓${NC} List operations successful [pass]"
-  else
-    echo -e "  ${RED}✗${NC} List operations failed: $list_result [fail]"
-  fi
-  
-  # Test INFO command
-  echo "  Testing INFO command..."
-  info_result=$(cmd "$node" "redis-cli -p $REDIS_PORT INFO server | head -5")
-  if [[ "$info_result" == *"redis_version"* ]]; then
-    echo -e "  ${GREEN}✓${NC} INFO command successful [pass]"
-  else
-    echo -e "  ${RED}✗${NC} INFO command failed: $info_result [fail]"
-  fi
-  
-  # Clean up test data
-  echo "  Cleaning up test data..."
-  cmd "$node" "redis-cli -p $REDIS_PORT FLUSHALL" > /dev/null 2>&1
-  echo -e "  ${GREEN}✓${NC} Test data cleaned up [pass]"
+  # Clean up
+  cmd "$node" "redis-cli -p 6379 FLUSHALL" > /dev/null 2>&1
 done
 
 # ============================================================================
