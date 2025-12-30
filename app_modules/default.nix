@@ -6,6 +6,6 @@
     ./mariadb
     ./redis
     ./opensearch
-    ./keydb
+    ./elasticsearch
   ];
 }
