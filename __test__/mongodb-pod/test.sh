@@ -22,7 +22,7 @@ if [ "$CMD" = "teardown" ]; then
   
   # Clean up data directory
   $NIX_INFRA fleet cmd -d "$WORK_DIR" --target="$TEST_NODES" \
-    'rm -rf /var/lib/mongodb'
+    'rm -rf /var/lib/mongodb-pod'
   
   echo "MongoDB teardown complete"
   return 0
