@@ -1,12 +1,12 @@
 { config, pkgs, lib, ... }: {
-  # Enable MongoDB standalone instance
+  # Enable MongoDB standalone instance using native NixOS service
   config.services.mongodb = {
     enable = true;
     package = pkgs.mongodb-ce;
     bind_ip = "127.0.0.1";
   };
 
-  # Support packages for testing
+  # Install mongosh for CLI access
   config.environment.systemPackages = with pkgs; [
     mongosh
   ];
