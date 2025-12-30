@@ -4,5 +4,6 @@
     ./mongodb-pod
     ./postgresql
     ./mariadb
+    ./redis
   ];
 }
