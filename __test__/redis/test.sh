@@ -92,7 +92,9 @@ done
 echo ""
 echo "Checking Redis processes..."
 for node in $TEST_NODES; do
-  process_count=$(cmd "$node" "pgrep -c redis-server || echo 0")
+  process_output=$(cmd "$node" "pgrep -c redis-server || echo 0")
+  # Strip node prefix (e.g., "testnode001: 2" -> "2")
+  process_count=$(echo "$process_output" | sed 's/^[^:]*: //' | tr -d '[:space:]')
   expected_count=${#REDIS_SERVERS[@]}
   if [[ "$process_count" -ge "$expected_count" ]]; then
     echo -e "  ${GREEN}✓${NC} $process_count Redis processes running ($node) [pass]"
@@ -100,6 +102,7 @@ for node in $TEST_NODES; do
     echo -e "  ${RED}✗${NC} Expected $expected_count processes, found $process_count ($node) [fail]"
   fi
 done
+
 
 # Check if Redis ports are listening
 echo ""
@@ -198,12 +201,15 @@ for node in $TEST_NODES; do
   cmd "$node" "redis-cli -p 6379 SET isolation-test 'default-server'" > /dev/null 2>&1
   
   # Try to get it from the cache server (should not exist)
-  cache_result=$(cmd "$node" "redis-cli -p 6380 GET isolation-test")
-  if [[ -z "$cache_result" ]] || [[ "$cache_result" == *"nil"* ]]; then
+  cache_output=$(cmd "$node" "redis-cli -p 6380 GET isolation-test")
+  # Strip node prefix and whitespace (e.g., "testnode001: (nil)" -> "(nil)")
+  cache_result=$(echo "$cache_output" | sed 's/^[^:]*: //' | tr -d '[:space:]')
+  if [[ -z "$cache_result" ]] || [[ "$cache_result" == "nil" ]] || [[ "$cache_result" == "(nil)" ]]; then
     echo -e "  ${GREEN}✓${NC} Servers are properly isolated [pass]"
   else
     echo -e "  ${RED}✗${NC} Data leaked between servers: $cache_result [fail]"
   fi
+
   
   # Clean up
   cmd "$node" "redis-cli -p 6379 FLUSHALL" > /dev/null 2>&1
