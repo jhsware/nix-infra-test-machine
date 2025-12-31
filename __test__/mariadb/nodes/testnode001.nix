@@ -1,16 +1,10 @@
 { config, pkgs, lib, ... }: {
-  # Enable MariaDB standalone instance using native NixOS service
-  config.services.mysql = {
+  # Enable MariaDB using the infrastructure module
+  infrastructure.mariadb = {
     enable = true;
-    package = pkgs.mariadb;
+    bindToIp = "127.0.0.1";
+    bindToPort = 3306;
     
-    settings = {
-      mysqld = {
-        bind-address = "127.0.0.1";
-        port = 3306;
-      };
-    };
-
     # Create initial database
     initialDatabases = [
       { name = "testdb"; }
@@ -26,7 +20,4 @@
       }
     ];
   };
-
-  # Open firewall for MariaDB (only if external access needed)
-  # config.networking.firewall.allowedTCPPorts = [ 3306 ];
 }
