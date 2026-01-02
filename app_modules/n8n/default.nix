@@ -5,7 +5,7 @@ let
 
   cfg = config.infrastructure.${appName};
 
-  # Environment variables shared between both configuration methods
+  # Environment variables for n8n configuration
   n8nEnvironment = {
     # Network settings
     N8N_PORT = toString cfg.bindToPort;
@@ -28,10 +28,6 @@ let
   }) // (lib.optionalAttrs (cfg.database.type == "postgresdb" && cfg.database.postgresdb.ssl) {
     DB_POSTGRESDB_SSL_ENABLED = "true";
   }) // cfg.settings;
-
-  # Check if NixOS version supports services.n8n.environment (25.11+)
-  # In 25.05, environment must be set via systemd.services.n8n.environment
-  hasServiceEnvironment = lib.hasAttr "environment" (config.services.n8n or {});
 in
 {
   options.infrastructure.${appName} = {
@@ -196,7 +192,7 @@ in
       type = lib.types.attrsOf lib.types.anything;
       description = ''
         Additional n8n configuration as environment variables.
-        These are passed directly to services.n8n.environment.
+        These are passed directly to the n8n service.
         See https://docs.n8n.io/hosting/environment-variables/environment-variables/
       '';
       default = {};
@@ -266,13 +262,11 @@ in
     services.n8n = {
       enable = true;
       openFirewall = cfg.openFirewall;
-    } // (lib.optionalAttrs hasServiceEnvironment {
-      # NixOS 25.11+: environment is available on services.n8n
-      environment = n8nEnvironment;
-    });
+    };
 
-    # NixOS 25.05: environment must be set through systemd service
-    systemd.services.n8n.environment = lib.mkIf (!hasServiceEnvironment) n8nEnvironment;
+    # Environment variables must be set through systemd service
+    # This approach works on both NixOS 25.05 and 25.11+
+    systemd.services.n8n.environment = n8nEnvironment;
 
     # ==========================================================================
     # Nginx Reverse Proxy (Optional)
@@ -385,4 +379,3 @@ in
     ];
   };
 }
-

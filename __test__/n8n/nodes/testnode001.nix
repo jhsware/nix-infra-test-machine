@@ -1,9 +1,30 @@
 { config, pkgs, lib, ... }: {
   # ==========================================================================
+  # Swap Configuration (for memory-intensive n8n builds)
+  # ==========================================================================
+  config.swapDevices = [{
+    device = "/swapfile";
+    size = 4096;  # 4GB swap
+  }];
+
+  # ==========================================================================
+  # Nix Build Settings (limit parallelism to avoid OOM during n8n build)
+  # ==========================================================================
+  config.nix.settings = {
+    # Only one build job at a time
+    max-jobs = 6;
+    # Limit cores per build job
+    cores = 6;
+  };
+
+  # ==========================================================================
   # n8n Configuration (using infrastructure module with SQLite)
   # ==========================================================================
   config.infrastructure.n8n = {
     enable = true;
+
+    # Reduce build memory to leave room for system (default: 4096)
+    buildMemoryMB = 8192;
 
     # Network settings
     bindToIp = "0.0.0.0";
