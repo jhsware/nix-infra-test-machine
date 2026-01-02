@@ -144,7 +144,7 @@ for node in $TARGET; do
   if [[ "$healthcheck" == *"ok"* ]] || [[ "$healthcheck" == *"healthy"* ]] || [[ -n "$healthcheck" ]]; then
     echo -e "  ${GREEN}✓${NC} n8n healthcheck responded: $healthcheck [pass]"
   else
-    echo -e "  ${YELLOW}!${NC} n8n healthcheck response: $healthcheck [warning]"
+    echo -e "  ${YELLOW}!${NC} n8n healthcheck response: $healthcheck [fail]"
   fi
   
   # Test n8n API types endpoint (should list available node types)
@@ -153,7 +153,7 @@ for node in $TARGET; do
   if [[ "$api_response" == *"data"* ]] || [[ "$api_response" == *"type"* ]]; then
     echo -e "  ${GREEN}✓${NC} n8n API is responding [pass]"
   else
-    echo -e "  ${YELLOW}!${NC} n8n API response: ${api_response:0:100} [warning]"
+    echo -e "  ${YELLOW}!${NC} n8n API response: ${api_response:0:100} [fail]"
   fi
   
   # Check n8n data directory exists on host
@@ -162,7 +162,7 @@ for node in $TARGET; do
   if [[ "$data_exists" == *"exists"* ]]; then
     echo -e "  ${GREEN}✓${NC} n8n data directory exists [pass]"
   else
-    echo -e "  ${YELLOW}!${NC} n8n data directory not found [warning]"
+    echo -e "  ${YELLOW}!${NC} n8n data directory not found [fail]"
   fi
   
   # Check SQLite database file exists (inside container volume)
@@ -171,7 +171,7 @@ for node in $TARGET; do
   if [[ "$sqlite_exists" == *"exists"* ]]; then
     echo -e "  ${GREEN}✓${NC} SQLite database file exists [pass]"
   else
-    echo -e "  ${YELLOW}!${NC} SQLite database file not found (may be created on first use) [warning]"
+    echo -e "  ${YELLOW}!${NC} SQLite database file not found (may be created on first use) [fail]"
   fi
   
   # Check container logs for errors
@@ -180,7 +180,7 @@ for node in $TARGET; do
   if [[ "$error_logs" == *"none"* ]] || [[ -z "$error_logs" ]]; then
     echo -e "  ${GREEN}✓${NC} No errors in container logs [pass]"
   else
-    echo -e "  ${YELLOW}!${NC} Errors found in logs: $error_logs [warning]"
+    echo -e "  ${YELLOW}!${NC} Errors found in logs: $error_logs [fail]"
   fi
   
   # Check container health

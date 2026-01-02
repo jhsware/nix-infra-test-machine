@@ -138,7 +138,7 @@ for node in $TARGET; do
   if [[ -n "$pg_start" ]] && [[ -n "$nc_setup_start" ]] && [[ "$pg_start" -lt "$nc_setup_start" ]]; then
     echo -e "  ${GREEN}✓${NC} PostgreSQL started before nextcloud-setup [pass]"
   else
-    echo -e "  ${YELLOW}!${NC} Could not verify PostgreSQL started before nextcloud-setup [warning]"
+    echo -e "  ${YELLOW}!${NC} Could not verify PostgreSQL started before nextcloud-setup [fail]"
   fi
   
   # Check Redis started before nextcloud-setup
@@ -147,7 +147,7 @@ for node in $TARGET; do
   if [[ -n "$redis_start" ]] && [[ -n "$nc_setup_start" ]] && [[ "$redis_start" -lt "$nc_setup_start" ]]; then
     echo -e "  ${GREEN}✓${NC} Redis started before nextcloud-setup [pass]"
   else
-    echo -e "  ${YELLOW}!${NC} Could not verify Redis started before nextcloud-setup [warning]"
+    echo -e "  ${YELLOW}!${NC} Could not verify Redis started before nextcloud-setup [fail]"
   fi
   
   # Check nextcloud-setup completed before phpfpm-nextcloud
@@ -156,7 +156,7 @@ for node in $TARGET; do
   if [[ -n "$nc_setup_start" ]] && [[ -n "$phpfpm_start" ]] && [[ "$nc_setup_start" -lt "$phpfpm_start" ]]; then
     echo -e "  ${GREEN}✓${NC} nextcloud-setup completed before phpfpm-nextcloud [pass]"
   else
-    echo -e "  ${YELLOW}!${NC} Could not verify nextcloud-setup completed before phpfpm-nextcloud [warning]"
+    echo -e "  ${YELLOW}!${NC} Could not verify nextcloud-setup completed before phpfpm-nextcloud [fail]"
   fi
   
   # Check phpfpm-nextcloud started before nginx
@@ -165,7 +165,7 @@ for node in $TARGET; do
   if [[ -n "$phpfpm_start" ]] && [[ -n "$nginx_start" ]] && [[ "$phpfpm_start" -lt "$nginx_start" ]]; then
     echo -e "  ${GREEN}✓${NC} phpfpm-nextcloud started before nginx [pass]"
   else
-    echo -e "  ${YELLOW}!${NC} Could not verify phpfpm-nextcloud started before nginx [warning]"
+    echo -e "  ${YELLOW}!${NC} Could not verify phpfpm-nextcloud started before nginx [fail]"
   fi
 done
 
@@ -275,7 +275,7 @@ for node in $TARGET; do
   if [[ "$occ_check" == *"installed: true"* ]]; then
     echo -e "  ${GREEN}✓${NC} Nextcloud OCC reports installed [pass]"
   else
-    echo -e "  ${YELLOW}!${NC} Nextcloud OCC status: $occ_check [warning]"
+    echo -e "  ${YELLOW}!${NC} Nextcloud OCC status: $occ_check [fail]"
   fi
   
   # Test admin user exists
@@ -284,7 +284,7 @@ for node in $TARGET; do
   if [[ "$admin_check" == *"admin"* ]]; then
     echo -e "  ${GREEN}✓${NC} Admin user exists [pass]"
   else
-    echo -e "  ${YELLOW}!${NC} Could not verify admin user [warning]"
+    echo -e "  ${YELLOW}!${NC} Could not verify admin user [fail]"
   fi
 done
 

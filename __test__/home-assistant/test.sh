@@ -139,7 +139,7 @@ for node in $TARGET; do
   if [[ "$api_response" == *"API running"* ]] || [[ "$api_response" == *"message"* ]]; then
     echo -e "  ${GREEN}✓${NC} Home Assistant API is responding [pass]"
   else
-    echo -e "  ${YELLOW}!${NC} Home Assistant API response: ${api_response:0:100} [warning]"
+    echo -e "  ${YELLOW}!${NC} Home Assistant API response: ${api_response:0:100} [fail]"
   fi
   
   # Test Home Assistant manifest
@@ -148,7 +148,7 @@ for node in $TARGET; do
   if [[ "$manifest_response" == *"Home Assistant"* ]]; then
     echo -e "  ${GREEN}✓${NC} Home Assistant manifest is accessible [pass]"
   else
-    echo -e "  ${YELLOW}!${NC} Manifest response: ${manifest_response:0:100} [warning]"
+    echo -e "  ${YELLOW}!${NC} Manifest response: ${manifest_response:0:100} [fail]"
   fi
   
   # Test Home Assistant frontend assets
@@ -157,7 +157,7 @@ for node in $TARGET; do
   if [[ "$frontend_response" == *"200"* ]]; then
     echo -e "  ${GREEN}✓${NC} Frontend assets are accessible [pass]"
   else
-    echo -e "  ${YELLOW}!${NC} Frontend response code: $frontend_response [warning]"
+    echo -e "  ${YELLOW}!${NC} Frontend response code: $frontend_response [fail]"
   fi
   
   # Check configuration directory exists
@@ -175,7 +175,7 @@ for node in $TARGET; do
   if [[ "$config_file" == *"exists"* ]]; then
     echo -e "  ${GREEN}✓${NC} configuration.yaml exists [pass]"
   else
-    echo -e "  ${YELLOW}!${NC} configuration.yaml not found (may be using NixOS-managed config) [warning]"
+    echo -e "  ${YELLOW}!${NC} configuration.yaml not found (may be using NixOS-managed config) [fail]"
   fi
   
   # Check Home Assistant database
@@ -184,7 +184,7 @@ for node in $TARGET; do
   if [[ "$db_exists" == *"exists"* ]]; then
     echo -e "  ${GREEN}✓${NC} Home Assistant database exists [pass]"
   else
-    echo -e "  ${YELLOW}!${NC} Database not found (may still be initializing) [warning]"
+    echo -e "  ${YELLOW}!${NC} Database not found (may still be initializing) [fail]"
   fi
   
   # Check service is not in error state
@@ -193,7 +193,7 @@ for node in $TARGET; do
   if [[ "$service_state" == "running" ]]; then
     echo -e "  ${GREEN}✓${NC} Service is running normally [pass]"
   else
-    echo -e "  ${YELLOW}!${NC} Service state: $service_state [warning]"
+    echo -e "  ${YELLOW}!${NC} Service state: $service_state [fail]"
   fi
   
   # Check for any failed units related to home-assistant
