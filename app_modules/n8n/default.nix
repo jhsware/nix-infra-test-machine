@@ -4,6 +4,34 @@ let
   defaultPort = 5678;
 
   cfg = config.infrastructure.${appName};
+
+  # Environment variables shared between both configuration methods
+  n8nEnvironment = {
+    # Network settings
+    N8N_PORT = toString cfg.bindToPort;
+    N8N_LISTEN_ADDRESS = cfg.bindToIp;
+
+    # Execution settings
+    EXECUTIONS_DATA_PRUNE = if cfg.executions.pruneData then "true" else "false";
+    EXECUTIONS_DATA_MAX_AGE = toString cfg.executions.pruneDataMaxAge;
+    EXECUTIONS_DATA_PRUNE_MAX_COUNT = toString cfg.executions.pruneDataMaxCount;
+  } // (lib.optionalAttrs (cfg.webhookUrl != "") {
+    # Webhook URL (if specified)
+    WEBHOOK_URL = cfg.webhookUrl;
+  }) // (lib.optionalAttrs (cfg.database.type == "postgresdb") {
+    # Database settings (only set if using PostgreSQL)
+    DB_TYPE = "postgresdb";
+    DB_POSTGRESDB_HOST = cfg.database.postgresdb.host;
+    DB_POSTGRESDB_PORT = toString cfg.database.postgresdb.port;
+    DB_POSTGRESDB_DATABASE = cfg.database.postgresdb.database;
+    DB_POSTGRESDB_USER = cfg.database.postgresdb.user;
+  }) // (lib.optionalAttrs (cfg.database.type == "postgresdb" && cfg.database.postgresdb.ssl) {
+    DB_POSTGRESDB_SSL_ENABLED = "true";
+  }) // cfg.settings;
+
+  # Check if NixOS version supports services.n8n.environment (25.11+)
+  # In 25.05, environment must be set via systemd.services.n8n.environment
+  hasServiceEnvironment = lib.hasAttr "environment" (config.services.n8n or {});
 in
 {
   options.infrastructure.${appName} = {
@@ -210,6 +238,14 @@ in
 
   config = lib.mkIf cfg.enable {
     # ==========================================================================
+    # Allow insecure n8n package (marked insecure due to CVE)
+    # ==========================================================================
+
+    nixpkgs.config.permittedInsecurePackages = [
+      "n8n-1.91.3"
+    ];
+
+    # ==========================================================================
     # Override n8n package with increased memory for build
     # ==========================================================================
 
@@ -230,32 +266,13 @@ in
     services.n8n = {
       enable = true;
       openFirewall = cfg.openFirewall;
+    } // (lib.optionalAttrs hasServiceEnvironment {
+      # NixOS 25.11+: environment is available on services.n8n
+      environment = n8nEnvironment;
+    });
 
-      # Environment variables configuration (replaces deprecated settings/webhookUrl)
-      environment = {
-        # Network settings
-        N8N_PORT = toString cfg.bindToPort;
-        N8N_LISTEN_ADDRESS = cfg.bindToIp;
-
-        # Webhook URL (if specified)
-        WEBHOOK_URL = lib.mkIf (cfg.webhookUrl != "") cfg.webhookUrl;
-
-        # Execution settings
-        EXECUTIONS_DATA_PRUNE = if cfg.executions.pruneData then "true" else "false";
-        EXECUTIONS_DATA_MAX_AGE = toString cfg.executions.pruneDataMaxAge;
-        EXECUTIONS_DATA_PRUNE_MAX_COUNT = toString cfg.executions.pruneDataMaxCount;
-      } // (lib.optionalAttrs (cfg.database.type == "postgresdb") {
-        # Database settings (only set if using PostgreSQL)
-        DB_TYPE = "postgresdb";
-        DB_POSTGRESDB_HOST = cfg.database.postgresdb.host;
-        DB_POSTGRESDB_PORT = toString cfg.database.postgresdb.port;
-        DB_POSTGRESDB_DATABASE = cfg.database.postgresdb.database;
-        DB_POSTGRESDB_USER = cfg.database.postgresdb.user;
-      }) // (lib.optionalAttrs (cfg.database.type == "postgresdb" && cfg.database.postgresdb.ssl) {
-        DB_POSTGRESDB_SSL_ENABLED = "true";
-      }) // cfg.settings;
-    };
-
+    # NixOS 25.05: environment must be set through systemd service
+    systemd.services.n8n.environment = lib.mkIf (!hasServiceEnvironment) n8nEnvironment;
 
     # ==========================================================================
     # Nginx Reverse Proxy (Optional)
@@ -368,3 +385,4 @@ in
     ];
   };
 }
+
