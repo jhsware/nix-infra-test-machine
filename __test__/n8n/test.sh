@@ -73,23 +73,9 @@ echo ""
 echo "Checking systemd services status..."
 echo ""
 
-# Only check n8n service (no PostgreSQL with SQLite backend)
-SERVICES=("n8n")
-
 for node in $TARGET; do
   echo "Checking services on $node..."
-  
-  for service in "${SERVICES[@]}"; do
-    service_status=$(cmd_value "$node" "systemctl is-active $service")
-    if [[ "$service_status" == "active" ]]; then
-      echo -e "  ${GREEN}✓${NC} $service: active [pass]"
-    else
-      echo -e "  ${RED}✗${NC} $service: $service_status [fail]"
-      echo ""
-      echo "Service logs:"
-      cmd "$node" "journalctl -n 50 -u $service"
-    fi
-  done
+  assert_service_active "$node" "n8n" || show_service_logs "$node" "n8n" 50
 done
 
 # ============================================================================
@@ -102,14 +88,7 @@ echo ""
 
 for node in $TARGET; do
   echo "Checking ports on $node..."
-  
-  # Check n8n port
-  n8n_port=$(cmd "$node" "ss -tlnp | grep ':5678 '")
-  if [[ "$n8n_port" == *":5678"* ]]; then
-    echo -e "  ${GREEN}✓${NC} n8n port 5678 is listening [pass]"
-  else
-    echo -e "  ${RED}✗${NC} n8n port 5678 is not listening [fail]"
-  fi
+  assert_port_listening "$node" "5678" "n8n port 5678"
 done
 
 # ============================================================================
@@ -125,13 +104,7 @@ for node in $TARGET; do
   
   # Test n8n HTTP response
   echo "  Testing n8n HTTP response..."
-  http_code=$(cmd_value "$node" "curl -s -o /dev/null -w '%{http_code}' http://localhost:5678/ 2>/dev/null || echo '000'")
-  # n8n may return 200 or redirect to setup/login
-  if [[ "$http_code" == "200" ]] || [[ "$http_code" == "302" ]] || [[ "$http_code" == "303" ]]; then
-    echo -e "  ${GREEN}✓${NC} HTTP response code: $http_code [pass]"
-  else
-    echo -e "  ${RED}✗${NC} HTTP response code: $http_code [fail]"
-  fi
+  assert_http_status "$node" "http://localhost:5678/" "200 302 303" "HTTP response"
   
   # Test n8n healthcheck endpoint
   echo "  Testing n8n healthcheck endpoint..."
@@ -139,7 +112,7 @@ for node in $TARGET; do
   if [[ "$healthcheck" == *"ok"* ]] || [[ "$healthcheck" == *"healthy"* ]] || [[ -n "$healthcheck" ]]; then
     echo -e "  ${GREEN}✓${NC} n8n healthcheck responded: $healthcheck [pass]"
   else
-    echo -e "  ${YELLOW}!${NC} n8n healthcheck response: $healthcheck [fail]"
+    echo -e "  ${YELLOW}!${NC} n8n healthcheck response: $healthcheck [warn]"
   fi
   
   # ============================================================================
@@ -246,30 +219,15 @@ rm -f /tmp/n8n-owner-result.json /tmp/n8n-login-result.json /tmp/n8n-cookies.txt
 
   # Check n8n data directory exists
   echo "  Testing n8n data directory..."
-  data_exists=$(cmd_value "$node" "test -d /var/lib/n8n && echo 'exists' || echo 'missing'")
-  if [[ "$data_exists" == "exists" ]]; then
-    echo -e "  ${GREEN}✓${NC} n8n data directory exists [pass]"
-  else
-    echo -e "  ${RED}✗${NC} n8n data directory not found [fail]"
-  fi
+  assert_dir_exists "$node" "/var/lib/n8n" "n8n data directory"
   
   # Check SQLite database file exists
   echo "  Testing SQLite database file..."
-  sqlite_exists=$(cmd_value "$node" "test -f /var/lib/n8n/.n8n/database.sqlite && echo 'exists' || echo 'missing'")
-  if [[ "$sqlite_exists" == "exists" ]]; then
-    echo -e "  ${GREEN}✓${NC} SQLite database file exists [pass]"
-  else
-    echo -e "  ${RED}✗${NC} SQLite database file not found [fail]"
-  fi
+  assert_file_exists "$node" "/var/lib/n8n/.n8n/database.sqlite" "SQLite database file"
   
-  # Check service is not in error state (handle node-prefixed output)
+  # Check service is not in error state
   echo "  Checking service state..."
-  service_state=$(cmd_value "$node" "systemctl show -p SubState n8n --value")
-  if [[ "$service_state" == "running" ]]; then
-    echo -e "  ${GREEN}✓${NC} Service is running normally [pass]"
-  else
-    echo -e "  ${RED}✗${NC} Service state: $service_state [fail]"
-  fi
+  assert_service_running "$node" "n8n" "Service running normally"
   
   # Check for any failed units related to n8n
   echo "  Checking for failed units..."
@@ -282,12 +240,7 @@ rm -f /tmp/n8n-owner-result.json /tmp/n8n-login-result.json /tmp/n8n-cookies.txt
   
   # Check n8n process is running
   echo "  Checking n8n process..."
-  n8n_process=$(cmd_clean "$node" "pgrep -f 'n8n' | head -1 || echo 'not_found'")
-  if [[ "$n8n_process" != "not_found" ]] && [[ -n "$n8n_process" ]] && [[ "$n8n_process" =~ [0-9] ]]; then
-    echo -e "  ${GREEN}✓${NC} n8n process is running [pass]"
-  else
-    echo -e "  ${RED}✗${NC} n8n process not found [fail]"
-  fi
+  assert_process_running "$node" "-f n8n" "n8n"
 done
 
 # ============================================================================
@@ -300,11 +253,6 @@ echo ""
 echo "========================================"
 echo "n8n Test Summary (SQLite)"
 echo "========================================"
-
-printTime() {
-  local _start=$1; local _end=$2; local _secs=$((_end-_start))
-  printf '%02dh:%02dm:%02ds' $((_secs/3600)) $((_secs%3600/60)) $((_secs%60))
-}
 
 printf '+ setup     %s\n' $(printTime $_start $_setup)
 printf '+ tests     %s\n' $(printTime $_setup $_end)

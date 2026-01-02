@@ -62,41 +62,21 @@ sleep 5
 # Check if the systemd service is active
 echo "Checking systemd service status..."
 for node in $TARGET; do
-  service_status=$(cmd_value "$node" "systemctl is-active podman-mongodb")
-  if [[ "$service_status" == "active" ]]; then
-    echo -e "  ${GREEN}✓${NC} podman-mongodb: active ($node) [pass]"
-  else
-    echo -e "  ${RED}✗${NC} podman-mongodb: $service_status ($node) [fail]"
-    echo ""
-    echo "Service logs:"
-    cmd "$node" "journalctl -n 30 -u podman-mongodb"
-  fi
+  assert_service_active "$node" "podman-mongodb" || show_service_logs "$node" "podman-mongodb" 30
 done
 
 # Check if container is running
 echo ""
 echo "Checking container status..."
 for node in $TARGET; do
-  container_status=$(cmd_clean "$node" "podman ps --filter name=mongodb --format '{{.Names}} {{.Status}}'")
-  if [[ "$container_status" == *"mongodb"* ]]; then
-    echo -e "  ${GREEN}✓${NC} Container running: $container_status ($node) [pass]"
-  else
-    echo -e "  ${RED}✗${NC} Container not running ($node) [fail]"
-    echo "All containers:"
-    cmd "$node" "podman ps -a"
-  fi
+  assert_container_running "$node" "mongodb" "MongoDB container"
 done
 
 # Check if MongoDB port is listening
 echo ""
 echo "Checking MongoDB port (27017)..."
 for node in $TARGET; do
-  port_check=$(cmd "$node" "ss -tlnp | grep 27017")
-  if [[ "$port_check" == *"27017"* ]]; then
-    echo -e "  ${GREEN}✓${NC} Port 27017 is listening ($node) [pass]"
-  else
-    echo -e "  ${RED}✗${NC} Port 27017 is not listening ($node) [fail]"
-  fi
+  assert_port_listening "$node" "27017" "MongoDB port 27017"
 done
 
 # ============================================================================
@@ -123,7 +103,7 @@ for node in $TARGET; do
   
   # Detect shell
   MONGO_SHELL=$(get_mongo_shell "$node")
-  echo "  Using shell: $MONGO_SHELL"
+  print_info "Using shell" "$MONGO_SHELL"
   
   # Insert a test document
   echo "  Inserting test document..."
@@ -137,25 +117,17 @@ for node in $TARGET; do
   # Query the test document
   echo "  Querying test document..."
   query_result=$(cmd_clean "$node" "podman exec mongodb $MONGO_SHELL --quiet --eval 'db.test.findOne({name: \"test\"})'")
-  if [[ "$query_result" == *"value"* ]] && [[ "$query_result" == *"42"* ]]; then
-    echo -e "  ${GREEN}✓${NC} Query operation successful [pass]"
-  else
-    echo -e "  ${RED}✗${NC} Query operation failed: $query_result [fail]"
-  fi
+  assert_contains_all "$query_result" "Query operation successful" "value" "42"
   
   # Test database listing
   echo "  Listing databases..."
   db_list=$(cmd_clean "$node" "podman exec mongodb $MONGO_SHELL --quiet --eval 'db.adminCommand({listDatabases: 1}).databases.map(d => d.name)'")
-  if [[ "$db_list" == *"admin"* ]]; then
-    echo -e "  ${GREEN}✓${NC} Database listing successful [pass]"
-  else
-    echo -e "  ${RED}✗${NC} Database listing failed: $db_list [fail]"
-  fi
+  assert_contains "$db_list" "admin" "Database listing successful"
   
   # Clean up test data
   echo "  Cleaning up test data..."
   cmd "$node" "podman exec mongodb $MONGO_SHELL --quiet --eval 'db.test.drop()'" > /dev/null 2>&1
-  echo -e "  ${GREEN}✓${NC} Test data cleaned up [pass]"
+  print_cleanup "Test data cleaned up"
 done
 
 # ============================================================================
@@ -168,11 +140,6 @@ echo ""
 echo "========================================"
 echo "MongoDB Test Summary"
 echo "========================================"
-
-printTime() {
-  local _start=$1; local _end=$2; local _secs=$((_end-_start))
-  printf '%02dh:%02dm:%02ds' $((_secs/3600)) $((_secs%3600/60)) $((_secs%60))
-}
 
 printf '+ setup     %s\n' $(printTime $_start $_setup)
 printf '+ tests     %s\n' $(printTime $_setup $_end)

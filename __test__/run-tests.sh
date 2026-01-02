@@ -118,6 +118,7 @@ fi
 
 # Source shared helpers
 source "$SCRIPT_DIR/shared.sh"
+source "$SCRIPT_DIR/assertions.sh"
 
 # ============================================================================
 # Test Runner Commands

@@ -65,15 +65,7 @@ sleep 5
 # Check if the systemd service is active
 echo "Checking systemd service status..."
 for node in $TARGET; do
-  service_status=$(cmd_value "$node" "systemctl is-active mysql")
-  if [[ "$service_status" == "active" ]]; then
-    echo -e "  ${GREEN}✓${NC} mysql: active ($node) [pass]"
-  else
-    echo -e "  ${RED}✗${NC} mysql: $service_status ($node) [fail]"
-    echo ""
-    echo "Service logs:"
-    cmd "$node" "journalctl -n 30 -u mysql"
-  fi
+  assert_service_active "$node" "mysql" || show_service_logs "$node" "mysql" 30
 done
 
 # Check if MariaDB process is running
@@ -81,23 +73,14 @@ echo ""
 echo "Checking MariaDB process..."
 for node in $TARGET; do
   process_status=$(cmd_clean "$node" "pgrep -a mariadbd || pgrep -a mysqld")
-  if [[ -n "$process_status" ]]; then
-    echo -e "  ${GREEN}✓${NC} MariaDB process running ($node) [pass]"
-  else
-    echo -e "  ${RED}✗${NC} MariaDB process not running ($node) [fail]"
-  fi
+  assert_not_empty "$process_status" "MariaDB process running"
 done
 
 # Check if MariaDB port is listening
 echo ""
 echo "Checking MariaDB port ($MARIADB_PORT)..."
 for node in $TARGET; do
-  port_check=$(cmd "$node" "ss -tlnp | grep $MARIADB_PORT")
-  if [[ "$port_check" == *"$MARIADB_PORT"* ]]; then
-    echo -e "  ${GREEN}✓${NC} Port $MARIADB_PORT is listening ($node) [pass]"
-  else
-    echo -e "  ${RED}✗${NC} Port $MARIADB_PORT is not listening ($node) [fail]"
-  fi
+  assert_port_listening "$node" "$MARIADB_PORT" "MariaDB port $MARIADB_PORT"
 done
 
 # ============================================================================
@@ -115,71 +98,42 @@ for node in $TARGET; do
   # Test connection
   echo "  Testing connection..."
   conn_result=$(cmd_clean "$node" "mysql -u root -e 'SELECT 1 as test;' 2>&1")
-  if [[ "$conn_result" == *"1"* ]]; then
-    echo -e "  ${GREEN}✓${NC} Connection successful [pass]"
-  else
-    echo -e "  ${RED}✗${NC} Connection failed: $conn_result [fail]"
-  fi
+  assert_contains "$conn_result" "1" "Connection successful"
   
   # Check if testdb was created
   echo "  Checking testdb database..."
   db_check=$(cmd_clean "$node" "mysql -u root -e 'SHOW DATABASES;' | grep testdb")
-  if [[ "$db_check" == *"testdb"* ]]; then
-    echo -e "  ${GREEN}✓${NC} Database 'testdb' exists [pass]"
-  else
-    echo -e "  ${RED}✗${NC} Database 'testdb' not found [fail]"
-  fi
+  assert_contains "$db_check" "testdb" "Database 'testdb' exists"
   
   # Create a test table
   echo "  Creating test table..."
   create_result=$(cmd_clean "$node" "mysql -u root -D testdb -e 'CREATE TABLE IF NOT EXISTS test_table (id INT AUTO_INCREMENT PRIMARY KEY, name VARCHAR(100), value INT);' 2>&1")
-  if [[ "$create_result" != *"ERROR"* ]]; then
-    echo -e "  ${GREEN}✓${NC} Create table successful [pass]"
-  else
-    echo -e "  ${RED}✗${NC} Create table failed: $create_result [fail]"
-  fi
+  assert_no_error "$create_result" "Create table successful"
   
   # Insert a test record
   echo "  Inserting test record..."
   insert_result=$(cmd_clean "$node" "mysql -u root -D testdb -e \"INSERT INTO test_table (name, value) VALUES ('test', 42);\" 2>&1")
-  if [[ "$insert_result" != *"ERROR"* ]]; then
-    echo -e "  ${GREEN}✓${NC} Insert operation successful [pass]"
-  else
-    echo -e "  ${RED}✗${NC} Insert operation failed: $insert_result [fail]"
-  fi
-
+  assert_no_error "$insert_result" "Insert operation successful"
   
   # Query the test record
   echo "  Querying test record..."
   query_result=$(cmd_clean "$node" "mysql -u root -D testdb -e \"SELECT * FROM test_table WHERE name = 'test';\" 2>&1")
-  if [[ "$query_result" == *"test"* ]] && [[ "$query_result" == *"42"* ]]; then
-    echo -e "  ${GREEN}✓${NC} Query operation successful [pass]"
-  else
-    echo -e "  ${RED}✗${NC} Query operation failed: $query_result [fail]"
-  fi
+  assert_contains_all "$query_result" "Query operation successful" "test" "42"
   
   # Test database listing
   echo "  Listing databases..."
   db_list=$(cmd_clean "$node" "mysql -u root -e 'SHOW DATABASES;' 2>&1")
-  if [[ "$db_list" == *"mysql"* ]] && [[ "$db_list" == *"information_schema"* ]]; then
-    echo -e "  ${GREEN}✓${NC} Database listing successful [pass]"
-  else
-    echo -e "  ${RED}✗${NC} Database listing failed: $db_list [fail]"
-  fi
+  assert_contains_all "$db_list" "Database listing successful" "mysql" "information_schema"
   
   # Test user was created
   echo "  Checking testuser exists..."
   user_check=$(cmd_clean "$node" "mysql -u root -e \"SELECT User FROM mysql.user WHERE User='testuser';\" 2>&1")
-  if [[ "$user_check" == *"testuser"* ]]; then
-    echo -e "  ${GREEN}✓${NC} User 'testuser' exists [pass]"
-  else
-    echo -e "  ${RED}✗${NC} User 'testuser' not found: $user_check [fail]"
-  fi
+  assert_contains "$user_check" "testuser" "User 'testuser' exists"
   
   # Clean up test data
   echo "  Cleaning up test data..."
   cmd "$node" "mysql -u root -D testdb -e 'DROP TABLE IF EXISTS test_table;'" > /dev/null 2>&1
-  echo -e "  ${GREEN}✓${NC} Test data cleaned up [pass]"
+  print_cleanup "Test data cleaned up"
 done
 
 # ============================================================================
@@ -192,11 +146,6 @@ echo ""
 echo "========================================"
 echo "MariaDB Test Summary"
 echo "========================================"
-
-printTime() {
-  local _start=$1; local _end=$2; local _secs=$((_end-_start))
-  printf '%02dh:%02dm:%02ds' $((_secs/3600)) $((_secs%3600/60)) $((_secs%60))
-}
 
 printf '+ setup     %s\n' $(printTime $_start $_setup)
 printf '+ tests     %s\n' $(printTime $_setup $_end)

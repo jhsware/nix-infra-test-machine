@@ -66,29 +66,14 @@ sleep 15
 echo ""
 echo "Checking systemd service status..."
 for node in $TARGET; do
-  service_status=$(cmd_value "$node" "systemctl is-active podman-n8n-pod")
-  if [[ "$service_status" == "active" ]]; then
-    echo -e "  ${GREEN}✓${NC} podman-n8n-pod: active ($node) [pass]"
-  else
-    echo -e "  ${RED}✗${NC} podman-n8n-pod: $service_status ($node) [fail]"
-    echo ""
-    echo "Service logs:"
-    cmd "$node" "journalctl -n 50 -u podman-n8n-pod"
-  fi
+  assert_service_active "$node" "podman-n8n-pod" || show_service_logs "$node" "podman-n8n-pod" 50
 done
 
 # Check if container is running
 echo ""
 echo "Checking container status..."
 for node in $TARGET; do
-  container_status=$(cmd_clean "$node" "podman ps --filter name=n8n-pod --format '{{.Names}} {{.Status}}'")
-  if [[ "$container_status" == *"n8n-pod"* ]]; then
-    echo -e "  ${GREEN}✓${NC} Container running: $container_status ($node) [pass]"
-  else
-    echo -e "  ${RED}✗${NC} Container not running ($node) [fail]"
-    echo "All containers:"
-    cmd "$node" "podman ps -a"
-  fi
+  assert_container_running "$node" "n8n-pod" "n8n-pod container"
 done
 
 # ============================================================================
@@ -101,14 +86,7 @@ echo ""
 
 for node in $TARGET; do
   echo "Checking ports on $node..."
-  
-  # Check n8n port
-  n8n_port=$(cmd "$node" "ss -tlnp | grep ':5678 '")
-  if [[ "$n8n_port" == *":5678"* ]]; then
-    echo -e "  ${GREEN}✓${NC} n8n port 5678 is listening [pass]"
-  else
-    echo -e "  ${RED}✗${NC} n8n port 5678 is not listening [fail]"
-  fi
+  assert_port_listening "$node" "5678" "n8n port 5678"
 done
 
 # ============================================================================
@@ -124,13 +102,7 @@ for node in $TARGET; do
   
   # Test n8n HTTP response
   echo "  Testing n8n HTTP response..."
-  http_code=$(cmd_value "$node" "curl -s -o /dev/null -w '%{http_code}' http://localhost:5678/ 2>/dev/null || echo '000'")
-  # n8n may return 200 or redirect to setup/login
-  if [[ "$http_code" == "200" ]] || [[ "$http_code" == "302" ]] || [[ "$http_code" == "303" ]]; then
-    echo -e "  ${GREEN}✓${NC} HTTP response code: $http_code [pass]"
-  else
-    echo -e "  ${RED}✗${NC} HTTP response code: $http_code [fail]"
-  fi
+  assert_http_status "$node" "http://localhost:5678/" "200 302 303" "HTTP response"
   
   # Test n8n healthcheck endpoint
   echo "  Testing n8n healthcheck endpoint..."
@@ -138,7 +110,7 @@ for node in $TARGET; do
   if [[ "$healthcheck" == *"ok"* ]] || [[ "$healthcheck" == *"healthy"* ]] || [[ -n "$healthcheck" ]]; then
     echo -e "  ${GREEN}✓${NC} n8n healthcheck responded: $healthcheck [pass]"
   else
-    echo -e "  ${YELLOW}!${NC} n8n healthcheck response: $healthcheck [fail]"
+    echo -e "  ${YELLOW}!${NC} n8n healthcheck response: $healthcheck [warn]"
   fi
   
   # Test n8n API types endpoint (should list available node types)
@@ -147,26 +119,17 @@ for node in $TARGET; do
   if [[ "$api_response" == *"data"* ]] || [[ "$api_response" == *"type"* ]]; then
     echo -e "  ${GREEN}✓${NC} n8n API is responding [pass]"
   else
-    echo -e "  ${YELLOW}!${NC} n8n API response: ${api_response:0:100} [fail]"
+    echo -e "  ${YELLOW}!${NC} n8n API response: ${api_response:0:100} [warn]"
   fi
   
   # Check n8n data directory exists on host
   echo "  Testing n8n data directory..."
-  data_exists=$(cmd_value "$node" "test -d /var/lib/n8n-pod && echo 'exists' || echo 'missing'")
-  if [[ "$data_exists" == "exists" ]]; then
-    echo -e "  ${GREEN}✓${NC} n8n data directory exists [pass]"
-  else
-    echo -e "  ${YELLOW}!${NC} n8n data directory not found [fail]"
-  fi
+  assert_dir_exists "$node" "/var/lib/n8n-pod" "n8n data directory"
   
   # Check SQLite database file exists (inside container volume)
   echo "  Testing SQLite database file..."
   sqlite_exists=$(cmd_value "$node" "test -f /var/lib/n8n-pod/database.sqlite && echo 'exists' || echo 'missing'")
-  if [[ "$sqlite_exists" == "exists" ]]; then
-    echo -e "  ${GREEN}✓${NC} SQLite database file exists [pass]"
-  else
-    echo -e "  ${YELLOW}!${NC} SQLite database file not found (may be created on first use) [fail]"
-  fi
+  assert_warn "$([[ "$sqlite_exists" == "exists" ]] && echo true || echo false)" "SQLite database file exists" "may be created on first use"
   
   # Check container logs for errors
   echo "  Checking container logs for errors..."
@@ -174,7 +137,7 @@ for node in $TARGET; do
   if [[ "$error_logs" == *"none"* ]] || [[ -z "$error_logs" ]]; then
     echo -e "  ${GREEN}✓${NC} No errors in container logs [pass]"
   else
-    echo -e "  ${YELLOW}!${NC} Errors found in logs: $error_logs [fail]"
+    echo -e "  ${YELLOW}!${NC} Errors found in logs: $error_logs [warn]"
   fi
   
   # Check container health
@@ -197,11 +160,6 @@ echo ""
 echo "========================================"
 echo "n8n-pod Test Summary (SQLite, Container)"
 echo "========================================"
-
-printTime() {
-  local _start=$1; local _end=$2; local _secs=$((_end-_start))
-  printf '%02dh:%02dm:%02ds' $((_secs/3600)) $((_secs%3600/60)) $((_secs%60))
-}
 
 printf '+ setup     %s\n' $(printTime $_start $_setup)
 printf '+ tests     %s\n' $(printTime $_setup $_end)

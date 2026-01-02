@@ -62,39 +62,21 @@ sleep 5
 # Check if the systemd service is active
 echo "Checking systemd service status..."
 for node in $TARGET; do
-  service_status=$(cmd_value "$node" "systemctl is-active postgresql")
-  if [[ "$service_status" == "active" ]]; then
-    echo -e "  ${GREEN}✓${NC} postgresql: active ($node) [pass]"
-  else
-    echo -e "  ${RED}✗${NC} postgresql: $service_status ($node) [fail]"
-    echo ""
-    echo "Service logs:"
-    cmd "$node" "journalctl -n 30 -u postgresql"
-  fi
+  assert_service_active "$node" "postgresql" || show_service_logs "$node" "postgresql" 30
 done
 
 # Check if PostgreSQL process is running
 echo ""
 echo "Checking PostgreSQL process..."
 for node in $TARGET; do
-  process_status=$(cmd_clean "$node" "pgrep -a postgres")
-  if [[ -n "$process_status" ]]; then
-    echo -e "  ${GREEN}✓${NC} PostgreSQL process running ($node) [pass]"
-  else
-    echo -e "  ${RED}✗${NC} PostgreSQL process not running ($node) [fail]"
-  fi
+  assert_process_running "$node" "postgres" "PostgreSQL"
 done
 
 # Check if PostgreSQL port is listening
 echo ""
 echo "Checking PostgreSQL port (5432)..."
 for node in $TARGET; do
-  port_check=$(cmd "$node" "ss -tlnp | grep 5432")
-  if [[ "$port_check" == *"5432"* ]]; then
-    echo -e "  ${GREEN}✓${NC} Port 5432 is listening ($node) [pass]"
-  else
-    echo -e "  ${RED}✗${NC} Port 5432 is not listening ($node) [fail]"
-  fi
+  assert_port_listening "$node" "5432" "PostgreSQL port 5432"
 done
 
 # ============================================================================
@@ -112,20 +94,12 @@ for node in $TARGET; do
   # Test connection
   echo "  Testing connection..."
   conn_result=$(cmd_clean "$node" "sudo -u postgres psql -c 'SELECT 1 as test;' 2>&1")
-  if [[ "$conn_result" == *"1"* ]]; then
-    echo -e "  ${GREEN}✓${NC} Connection successful [pass]"
-  else
-    echo -e "  ${RED}✗${NC} Connection failed: $conn_result [fail]"
-  fi
+  assert_contains "$conn_result" "1" "Connection successful"
   
   # Check if testdb was created
   echo "  Checking testdb database..."
   db_check=$(cmd_clean "$node" "sudo -u postgres psql -l | grep testdb")
-  if [[ "$db_check" == *"testdb"* ]]; then
-    echo -e "  ${GREEN}✓${NC} Database 'testdb' exists [pass]"
-  else
-    echo -e "  ${RED}✗${NC} Database 'testdb' not found [fail]"
-  fi
+  assert_contains "$db_check" "testdb" "Database 'testdb' exists"
   
   # Create a test table
   echo "  Creating test table..."
@@ -139,34 +113,22 @@ for node in $TARGET; do
   # Insert a test record
   echo "  Inserting test record..."
   insert_result=$(cmd_clean "$node" "sudo -u postgres psql -d testdb -c \"INSERT INTO test_table (name, value) VALUES ('test', 42);\" 2>&1")
-  if [[ "$insert_result" == *"INSERT"* ]]; then
-    echo -e "  ${GREEN}✓${NC} Insert operation successful [pass]"
-  else
-    echo -e "  ${RED}✗${NC} Insert operation failed: $insert_result [fail]"
-  fi
+  assert_contains "$insert_result" "INSERT" "Insert operation successful"
   
   # Query the test record
   echo "  Querying test record..."
   query_result=$(cmd_clean "$node" "sudo -u postgres psql -d testdb -c 'SELECT * FROM test_table WHERE name = '\\''test'\\'';' 2>&1")
-  if [[ "$query_result" == *"test"* ]] && [[ "$query_result" == *"42"* ]]; then
-    echo -e "  ${GREEN}✓${NC} Query operation successful [pass]"
-  else
-    echo -e "  ${RED}✗${NC} Query operation failed: $query_result [fail]"
-  fi
+  assert_contains_all "$query_result" "Query operation successful" "test" "42"
   
   # Test database listing
   echo "  Listing databases..."
   db_list=$(cmd_clean "$node" "sudo -u postgres psql -c '\\l' 2>&1")
-  if [[ "$db_list" == *"postgres"* ]]; then
-    echo -e "  ${GREEN}✓${NC} Database listing successful [pass]"
-  else
-    echo -e "  ${RED}✗${NC} Database listing failed: $db_list [fail]"
-  fi
+  assert_contains "$db_list" "postgres" "Database listing successful"
   
   # Clean up test data
   echo "  Cleaning up test data..."
   cmd "$node" "sudo -u postgres psql -d testdb -c 'DROP TABLE IF EXISTS test_table;'" > /dev/null 2>&1
-  echo -e "  ${GREEN}✓${NC} Test data cleaned up [pass]"
+  print_cleanup "Test data cleaned up"
 done
 
 # ============================================================================
@@ -179,11 +141,6 @@ echo ""
 echo "========================================"
 echo "PostgreSQL Test Summary"
 echo "========================================"
-
-printTime() {
-  local _start=$1; local _end=$2; local _secs=$((_end-_start))
-  printf '%02dh:%02dm:%02ds' $((_secs/3600)) $((_secs%3600/60)) $((_secs%60))
-}
 
 printf '+ setup     %s\n' $(printTime $_start $_setup)
 printf '+ tests     %s\n' $(printTime $_setup $_end)

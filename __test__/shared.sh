@@ -323,3 +323,24 @@ getServiceLogs() {
   cmd "$NODE" "journalctl -n $LINES -u $SERVICE" 2>&1
   echo "--- End of logs ---"
 }
+
+# ============================================================================
+# Info output
+# ============================================================================
+
+# Print info line (not pass/fail)
+# Usage: print_info "label" "value"
+print_info() {
+  local label="$1"
+  local value="$2"
+  
+  echo -e "  ${GREEN}✓${NC} $label: $value [info]"
+}
+
+# Print cleanup success
+# Usage: print_cleanup "label"
+print_cleanup() {
+  local label="$1"
+  
+  echo -e "  ${GREEN}✓${NC} $label [pass]"
+}

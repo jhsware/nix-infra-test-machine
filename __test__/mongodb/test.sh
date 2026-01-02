@@ -65,39 +65,21 @@ sleep 5
 # Check if the systemd service is active
 echo "Checking systemd service status..."
 for node in $TARGET; do
-  service_status=$(cmd_value "$node" "systemctl is-active mongodb")
-  if [[ "$service_status" == "active" ]]; then
-    echo -e "  ${GREEN}✓${NC} mongodb: active ($node) [pass]"
-  else
-    echo -e "  ${RED}✗${NC} mongodb: $service_status ($node) [fail]"
-    echo ""
-    echo "Service logs:"
-    cmd "$node" "journalctl -n 30 -u mongodb"
-  fi
+  assert_service_active "$node" "mongodb" || show_service_logs "$node" "mongodb" 30
 done
 
 # Check if MongoDB process is running
 echo ""
 echo "Checking MongoDB process..."
 for node in $TARGET; do
-  process_status=$(cmd_clean "$node" "pgrep -a mongod")
-  if [[ -n "$process_status" ]]; then
-    echo -e "  ${GREEN}✓${NC} MongoDB process running ($node) [pass]"
-  else
-    echo -e "  ${RED}✗${NC} MongoDB process not running ($node) [fail]"
-  fi
+  assert_process_running "$node" "mongod" "MongoDB"
 done
 
 # Check if MongoDB port is listening
 echo ""
 echo "Checking MongoDB port ($MONGODB_PORT)..."
 for node in $TARGET; do
-  port_check=$(cmd "$node" "ss -tlnp | grep $MONGODB_PORT")
-  if [[ "$port_check" == *"$MONGODB_PORT"* ]]; then
-    echo -e "  ${GREEN}✓${NC} Port $MONGODB_PORT is listening ($node) [pass]"
-  else
-    echo -e "  ${RED}✗${NC} Port $MONGODB_PORT is not listening ($node) [fail]"
-  fi
+  assert_port_listening "$node" "$MONGODB_PORT" "MongoDB port $MONGODB_PORT"
 done
 
 # ============================================================================
@@ -124,25 +106,17 @@ for node in $TARGET; do
   # Query the test document
   echo "  Querying test document..."
   query_result=$(cmd_clean "$node" "mongosh --port $MONGODB_PORT --quiet --eval 'db.test.findOne({name: \"test\"})'")
-  if [[ "$query_result" == *"value"* ]] && [[ "$query_result" == *"42"* ]]; then
-    echo -e "  ${GREEN}✓${NC} Query operation successful [pass]"
-  else
-    echo -e "  ${RED}✗${NC} Query operation failed: $query_result [fail]"
-  fi
+  assert_contains_all "$query_result" "Query operation successful" "value" "42"
   
   # Test database listing
   echo "  Listing databases..."
   db_list=$(cmd_clean "$node" "mongosh --port $MONGODB_PORT --quiet --eval 'db.adminCommand({listDatabases: 1}).databases.map(d => d.name)'")
-  if [[ "$db_list" == *"admin"* ]]; then
-    echo -e "  ${GREEN}✓${NC} Database listing successful [pass]"
-  else
-    echo -e "  ${RED}✗${NC} Database listing failed: $db_list [fail]"
-  fi
+  assert_contains "$db_list" "admin" "Database listing successful"
   
   # Clean up test data
   echo "  Cleaning up test data..."
   cmd "$node" "mongosh --port $MONGODB_PORT --quiet --eval 'db.test.drop()'" > /dev/null 2>&1
-  echo -e "  ${GREEN}✓${NC} Test data cleaned up [pass]"
+  print_cleanup "Test data cleaned up"
 done
 
 # ============================================================================
@@ -155,11 +129,6 @@ echo ""
 echo "========================================"
 echo "MongoDB Test Summary"
 echo "========================================"
-
-printTime() {
-  local _start=$1; local _end=$2; local _secs=$((_end-_start))
-  printf '%02dh:%02dm:%02ds' $((_secs/3600)) $((_secs%3600/60)) $((_secs%60))
-}
 
 printf '+ setup     %s\n' $(printTime $_start $_setup)
 printf '+ tests     %s\n' $(printTime $_setup $_end)

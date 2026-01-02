@@ -59,11 +59,7 @@ EOF"
 echo "Verifying secret creation..."
 for node in $TARGET; do
   secret_check=$(cmd "$node" "cat /run/secrets/$MINIO_SECRET_NAME 2>/dev/null | head -1")
-  if [[ "$secret_check" == *"MINIO_ROOT_USER"* ]]; then
-    echo -e "  ${GREEN}✓${NC} Secret created on $node [pass]"
-  else
-    echo -e "  ${RED}✗${NC} Secret creation failed on $node [fail]"
-  fi
+  assert_contains "$secret_check" "MINIO_ROOT_USER" "Secret created on $node"
 done
 
 # Deploy the minio configuration to test nodes
@@ -98,51 +94,28 @@ sleep 10
 # Check if the systemd service is active
 echo "Checking systemd service status..."
 for node in $TARGET; do
-  service_status=$(cmd_value "$node" "systemctl is-active minio")
-  if [[ "$service_status" == "active" ]]; then
-    echo -e "  ${GREEN}✓${NC} minio: active ($node) [pass]"
-  else
-    echo -e "  ${RED}✗${NC} minio: $service_status ($node) [fail]"
-    echo ""
-    echo "Service logs:"
-    cmd "$node" "journalctl -n 50 -u minio"
-  fi
+  assert_service_active "$node" "minio" || show_service_logs "$node" "minio" 50
 done
 
 # Check if MinIO process is running
 echo ""
 echo "Checking MinIO process..."
 for node in $TARGET; do
-  process_status=$(cmd_clean "$node" "pgrep -a minio")
-  if [[ -n "$process_status" ]]; then
-    echo -e "  ${GREEN}✓${NC} MinIO process running ($node) [pass]"
-  else
-    echo -e "  ${RED}✗${NC} MinIO process not running ($node) [fail]"
-  fi
+  assert_process_running "$node" "minio" "MinIO"
 done
 
 # Check if MinIO API port is listening
 echo ""
 echo "Checking MinIO API port ($MINIO_API_PORT)..."
 for node in $TARGET; do
-  port_check=$(cmd "$node" "ss -tlnp | grep $MINIO_API_PORT")
-  if [[ "$port_check" == *"$MINIO_API_PORT"* ]]; then
-    echo -e "  ${GREEN}✓${NC} API port $MINIO_API_PORT is listening ($node) [pass]"
-  else
-    echo -e "  ${RED}✗${NC} API port $MINIO_API_PORT is not listening ($node) [fail]"
-  fi
+  assert_port_listening "$node" "$MINIO_API_PORT" "API port $MINIO_API_PORT"
 done
 
 # Check if MinIO Console port is listening
 echo ""
 echo "Checking MinIO Console port ($MINIO_CONSOLE_PORT)..."
 for node in $TARGET; do
-  port_check=$(cmd "$node" "ss -tlnp | grep $MINIO_CONSOLE_PORT")
-  if [[ "$port_check" == *"$MINIO_CONSOLE_PORT"* ]]; then
-    echo -e "  ${GREEN}✓${NC} Console port $MINIO_CONSOLE_PORT is listening ($node) [pass]"
-  else
-    echo -e "  ${RED}✗${NC} Console port $MINIO_CONSOLE_PORT is not listening ($node) [fail]"
-  fi
+  assert_port_listening "$node" "$MINIO_CONSOLE_PORT" "Console port $MINIO_CONSOLE_PORT"
 done
 
 # ============================================================================
@@ -168,12 +141,7 @@ for node in $TARGET; do
   
   # Test server health endpoint using HTTP status code
   echo "  Checking server health..."
-  health_code=$(cmd_value "$node" "curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:$MINIO_API_PORT/minio/health/live")
-  if [[ "$health_code" == "200" ]]; then
-    echo -e "  ${GREEN}✓${NC} Server health endpoint accessible (HTTP 200) [pass]"
-  else
-    echo -e "  ${RED}✗${NC} Server health check failed: HTTP $health_code [fail]"
-  fi
+  assert_http_status "$node" "http://127.0.0.1:$MINIO_API_PORT/minio/health/live" "200" "Server health endpoint"
   
   # Create a test bucket
   echo "  Creating test bucket..."
@@ -187,11 +155,7 @@ for node in $TARGET; do
   # List buckets
   echo "  Listing buckets..."
   list_result=$(cmd_clean "$node" "mc ls testminio 2>&1")
-  if [[ "$list_result" == *"test-bucket"* ]]; then
-    echo -e "  ${GREEN}✓${NC} Bucket listing successful [pass]"
-  else
-    echo -e "  ${RED}✗${NC} Bucket listing failed: $list_result [fail]"
-  fi
+  assert_contains "$list_result" "test-bucket" "Bucket listing successful"
   
   # Upload a test object
   echo "  Uploading test object..."
@@ -206,22 +170,14 @@ for node in $TARGET; do
   # List objects in bucket
   echo "  Listing objects in bucket..."
   objects_result=$(cmd_clean "$node" "mc ls testminio/test-bucket 2>&1")
-  if [[ "$objects_result" == *"test-file.txt"* ]]; then
-    echo -e "  ${GREEN}✓${NC} Object listing successful [pass]"
-  else
-    echo -e "  ${RED}✗${NC} Object listing failed: $objects_result [fail]"
-  fi
+  assert_contains "$objects_result" "test-file.txt" "Object listing successful"
   
   # Download the test object
   echo "  Downloading test object..."
   cmd "$node" "rm -f /tmp/downloaded-file.txt"
   download_result=$(cmd_clean "$node" "mc cp testminio/test-bucket/test-file.txt /tmp/downloaded-file.txt 2>&1")
   content_check=$(cmd_clean "$node" "cat /tmp/downloaded-file.txt 2>/dev/null")
-  if [[ "$content_check" == *"Hello MinIO Test!"* ]]; then
-    echo -e "  ${GREEN}✓${NC} Object download successful [pass]"
-  else
-    echo -e "  ${RED}✗${NC} Object download failed: $download_result [fail]"
-  fi
+  assert_contains "$content_check" "Hello MinIO Test!" "Object download successful"
   
   # Get object info/stat
   echo "  Getting object info..."
@@ -235,12 +191,12 @@ for node in $TARGET; do
   # Clean up - remove object
   echo "  Cleaning up test object..."
   cmd "$node" "mc rm testminio/test-bucket/test-file.txt 2>&1" > /dev/null
-  echo -e "  ${GREEN}✓${NC} Test object removed [pass]"
+  print_cleanup "Test object removed"
   
   # Clean up - remove bucket
   echo "  Cleaning up test bucket..."
   cmd "$node" "mc rb testminio/test-bucket 2>&1" > /dev/null
-  echo -e "  ${GREEN}✓${NC} Test bucket removed [pass]"
+  print_cleanup "Test bucket removed"
   
   # Clean up temp files
   cmd "$node" "rm -f /tmp/test-file.txt /tmp/downloaded-file.txt" > /dev/null 2>&1
@@ -256,11 +212,6 @@ echo ""
 echo "========================================"
 echo "MinIO Test Summary"
 echo "========================================"
-
-printTime() {
-  local _start=$1; local _end=$2; local _secs=$((_end-_start))
-  printf '%02dh:%02dm:%02ds' $((_secs/3600)) $((_secs%3600/60)) $((_secs%60))
-}
 
 printf '+ setup     %s\n' $(printTime $_start $_setup)
 printf '+ tests     %s\n' $(printTime $_setup $_end)
