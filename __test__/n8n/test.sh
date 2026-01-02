@@ -139,7 +139,7 @@ for node in $TARGET; do
   if [[ "$healthcheck" == *"ok"* ]] || [[ "$healthcheck" == *"healthy"* ]] || [[ -n "$healthcheck" ]]; then
     echo -e "  ${GREEN}✓${NC} n8n healthcheck responded: $healthcheck [pass]"
   else
-    echo -e "  ${YELLOW}!${NC} n8n healthcheck response: $healthcheck [warning]"
+    echo -e "  ${YELLOW}!${NC} n8n healthcheck response: $healthcheck [fail]"
   fi
   
   # Test n8n API types endpoint (should list available node types)
@@ -148,7 +148,7 @@ for node in $TARGET; do
   if [[ "$api_response" == *"data"* ]] || [[ "$api_response" == *"type"* ]]; then
     echo -e "  ${GREEN}✓${NC} n8n API is responding [pass]"
   else
-    echo -e "  ${YELLOW}!${NC} n8n API response: ${api_response:0:100} [warning]"
+    echo -e "  ${YELLOW}!${NC} n8n API response: ${api_response:0:100} [fail]"
   fi
   
   # Check n8n data directory exists
@@ -157,7 +157,7 @@ for node in $TARGET; do
   if [[ "$data_exists" == *"exists"* ]]; then
     echo -e "  ${GREEN}✓${NC} n8n data directory exists [pass]"
   else
-    echo -e "  ${YELLOW}!${NC} n8n data directory not found [warning]"
+    echo -e "  ${YELLOW}!${NC} n8n data directory not found [fail]"
   fi
   
   # Check SQLite database file exists
@@ -166,7 +166,7 @@ for node in $TARGET; do
   if [[ "$sqlite_exists" == *"exists"* ]]; then
     echo -e "  ${GREEN}✓${NC} SQLite database file exists [pass]"
   else
-    echo -e "  ${YELLOW}!${NC} SQLite database file not found (may be created on first use) [warning]"
+    echo -e "  ${YELLOW}!${NC} SQLite database file not found (may be created on first use) [fail]"
   fi
   
   # Check service is not in error state
@@ -175,7 +175,7 @@ for node in $TARGET; do
   if [[ "$service_state" == "running" ]]; then
     echo -e "  ${GREEN}✓${NC} Service is running normally [pass]"
   else
-    echo -e "  ${YELLOW}!${NC} Service state: $service_state [warning]"
+    echo -e "  ${YELLOW}!${NC} Service state: $service_state [fail]"
   fi
   
   # Check for any failed units related to n8n
