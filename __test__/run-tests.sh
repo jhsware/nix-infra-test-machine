@@ -7,9 +7,10 @@ SSH_KEY="nixinfra-machine"
 SSH_EMAIL=${SSH_EMAIL:-your-email@example.com}
 ENV=${ENV:-.env}
 SECRETS_PWD=${SECRETS_PWD:-my_secrets_password}
-TEST_NODES=${TEST_NODES:-"testnode001"}
+TARGET=${TARGET:-"testnode001"}
 
 read -r -d '' __help_text__ <<EOF || true
+
 nix-infra-machine Test Runner
 =============================
 
@@ -142,8 +143,9 @@ if [ "$CMD" = "run" ]; then
 
   if [ "$NO_TEARDOWN" != "true" ]; then
     echo "Resetting node configurations..."
-    $NIX_INFRA fleet cmd -d "$WORK_DIR" --target="$TEST_NODES" 'rm -f /etc/nixos/$(hostname).nix'
-    $NIX_INFRA fleet cmd -d "$WORK_DIR" --target="$TEST_NODES" "nixos-rebuild switch --fast"
+    $NIX_INFRA fleet cmd -d "$WORK_DIR" --target="$TARGET" 'rm -f /etc/nixos/$(hostname).nix'
+    $NIX_INFRA fleet cmd -d "$WORK_DIR" --target="$TARGET" "nixos-rebuild switch --fast"
+
   fi
   
   exit 0
@@ -161,8 +163,9 @@ if [ "$CMD" = "reset" ]; then
   fi
 
   echo "Cleaning up node configuration..."
-  $NIX_INFRA fleet cmd -d "$WORK_DIR" --target="$TEST_NODES" 'rm -f /etc/nixos/$(hostname).nix'
-  $NIX_INFRA fleet cmd -d "$WORK_DIR" --target="$TEST_NODES" "nixos-rebuild switch --fast"
+  $NIX_INFRA fleet cmd -d "$WORK_DIR" --target="$TARGET" 'rm -f /etc/nixos/$(hostname).nix'
+  $NIX_INFRA fleet cmd -d "$WORK_DIR" --target="$TARGET" "nixos-rebuild switch --fast"
+
 
   sleep 1
 
@@ -188,13 +191,14 @@ fi
 
 destroyFleet() {
   $NIX_INFRA fleet destroy -d "$WORK_DIR" --batch \
-      --target="$TEST_NODES"
+      --target="$TARGET"
 
   $NIX_INFRA ssh-key remove -d "$WORK_DIR" --batch --name="$SSH_KEY"
 
   echo "Remove /secrets..."
   rm -rf "$WORK_DIR/secrets"
 }
+
 
 cleanupOnFail() {
   if [ $1 -ne 0 ]; then
@@ -210,9 +214,10 @@ if [ "$CMD" = "destroy" ]; then
 fi
 
 if [ "$CMD" = "status" ]; then
-  testFleet "$TEST_NODES"
+  testFleet "$TARGET"
   exit 0
 fi
+
 
 if [ "$CMD" = "update" ]; then
   if [ -z "$REST" ]; then
@@ -328,8 +333,8 @@ EOF
       --nixos-version="$NIXOS_VERSION" \
       --ssh-key=$SSH_KEY \
       --location=hel1 \
-      --machine-type=cpx21 \
-      --node-names="$TEST_NODES"
+      --machine-type=cpx22 \
+      --node-names="$TARGET"
 
   cleanupOnFail $? "WARNING: Provisioning failed! Cleaning up..."
 
@@ -337,17 +342,18 @@ EOF
 
   $NIX_INFRA fleet init-machine -d "$WORK_DIR" --batch --env="$ENV" \
       --nixos-version="$NIXOS_VERSION" \
-      --target="$TEST_NODES" \
+      --target="$TARGET" \
       --node-module="node_types/standalone_machine.nix"
 
-  $NIX_INFRA fleet cmd -d "$WORK_DIR" --target="$TEST_NODES" "nixos-rebuild switch --fast"
+  $NIX_INFRA fleet cmd -d "$WORK_DIR" --target="$TARGET" "nixos-rebuild switch --fast"
 
   _init_nodes=$(date +%s)
 
   # Verify the operation of the test fleet
   echo "******************************************"
-  testFleet "$TEST_NODES"
+  testFleet "$TARGET"
   echo "******************************************"
+
 
   _end=$(date +%s)
 

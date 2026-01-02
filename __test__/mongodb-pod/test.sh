@@ -17,11 +17,11 @@ if [ "$CMD" = "teardown" ]; then
   echo "Tearing down MongoDB test..."
   
   # Stop and remove container if running
-  $NIX_INFRA fleet cmd -d "$WORK_DIR" --target="$TEST_NODES" \
+  $NIX_INFRA fleet cmd -d "$WORK_DIR" --target="$TARGET" \
     'systemctl stop podman-mongodb 2>/dev/null || true'
   
   # Clean up data directory
-  $NIX_INFRA fleet cmd -d "$WORK_DIR" --target="$TEST_NODES" \
+  $NIX_INFRA fleet cmd -d "$WORK_DIR" --target="$TARGET" \
     'rm -rf /var/lib/mongodb-pod'
   
   echo "MongoDB teardown complete"
@@ -44,11 +44,11 @@ echo ""
 echo "Step 1: Deploying MongoDB configuration..."
 $NIX_INFRA fleet deploy-apps -d "$WORK_DIR" --batch --env="$ENV" \
   --test-dir="$WORK_DIR/$TEST_DIR" \
-  --target="$TEST_NODES"
+  --target="$TARGET"
 
 # Apply the configuration
 echo "Step 2: Applying NixOS configuration..."
-$NIX_INFRA fleet cmd -d "$WORK_DIR" --target="$TEST_NODES" "nixos-rebuild switch --fast"
+$NIX_INFRA fleet cmd -d "$WORK_DIR" --target="$TARGET" "nixos-rebuild switch --fast"
 
 _setup=$(date +%s)
 
@@ -66,7 +66,7 @@ sleep 5
 
 # Check if the systemd service is active
 echo "Checking systemd service status..."
-for node in $TEST_NODES; do
+for node in $TARGET; do
   service_status=$(cmd "$node" "systemctl is-active podman-mongodb")
   if [[ "$service_status" == *"active"* ]]; then
     echo -e "  ${GREEN}✓${NC} podman-mongodb: active ($node) [pass]"
@@ -81,7 +81,7 @@ done
 # Check if container is running
 echo ""
 echo "Checking container status..."
-for node in $TEST_NODES; do
+for node in $TARGET; do
   container_status=$(cmd "$node" "podman ps --filter name=mongodb --format '{{.Names}} {{.Status}}'")
   if [[ "$container_status" == *"mongodb"* ]]; then
     echo -e "  ${GREEN}✓${NC} Container running: $container_status ($node) [pass]"
@@ -95,7 +95,7 @@ done
 # Check if MongoDB port is listening
 echo ""
 echo "Checking MongoDB port (27017)..."
-for node in $TEST_NODES; do
+for node in $TARGET; do
   port_check=$(cmd "$node" "ss -tlnp | grep 27017")
   if [[ "$port_check" == *"27017"* ]]; then
     echo -e "  ${GREEN}✓${NC} Port 27017 is listening ($node) [pass]"
@@ -123,7 +123,7 @@ get_mongo_shell() {
 }
 
 # Test MongoDB connection and basic operations
-for node in $TEST_NODES; do
+for node in $TARGET; do
   echo "Testing MongoDB operations on $node..."
   
   # Detect shell

@@ -25,15 +25,15 @@ if [ "$CMD" = "teardown" ]; then
   echo "Tearing down MinIO test..."
   
   # Stop MinIO service
-  $NIX_INFRA fleet cmd -d "$WORK_DIR" --target="$TEST_NODES" \
+  $NIX_INFRA fleet cmd -d "$WORK_DIR" --target="$TARGET" \
     'systemctl stop minio 2>/dev/null || true'
   
   # Clean up data directory
-  $NIX_INFRA fleet cmd -d "$WORK_DIR" --target="$TEST_NODES" \
+  $NIX_INFRA fleet cmd -d "$WORK_DIR" --target="$TARGET" \
     'rm -rf /var/lib/minio'
   
   # Clean up secrets
-  $NIX_INFRA fleet cmd -d "$WORK_DIR" --target="$TEST_NODES" \
+  $NIX_INFRA fleet cmd -d "$WORK_DIR" --target="$TARGET" \
     "rm -f /run/secrets/$MINIO_SECRET_NAME"
   
   echo "MinIO teardown complete"
@@ -54,7 +54,7 @@ echo ""
 
 # Create MinIO credentials secret on target nodes
 echo "Step 1: Creating MinIO credentials secret on nodes..."
-$NIX_INFRA fleet cmd -d "$WORK_DIR" --target="$TEST_NODES" \
+$NIX_INFRA fleet cmd -d "$WORK_DIR" --target="$TARGET" \
   "mkdir -p /run/secrets && cat > /run/secrets/$MINIO_SECRET_NAME << 'EOF'
 MINIO_ROOT_USER=$MINIO_USER
 MINIO_ROOT_PASSWORD=$MINIO_PASSWORD
@@ -62,7 +62,7 @@ EOF"
 
 # Verify secret was created
 echo "Verifying secret creation..."
-for node in $TEST_NODES; do
+for node in $TARGET; do
   secret_check=$(cmd "$node" "cat /run/secrets/$MINIO_SECRET_NAME 2>/dev/null | head -1")
   if [[ "$secret_check" == *"MINIO_ROOT_USER"* ]]; then
     echo -e "  ${GREEN}✓${NC} Secret created on $node [pass]"
@@ -76,15 +76,15 @@ echo ""
 echo "Step 2: Deploying MinIO configuration..."
 $NIX_INFRA fleet deploy-apps -d "$WORK_DIR" --batch --env="$ENV" \
   --test-dir="$WORK_DIR/$TEST_DIR" \
-  --target="$TEST_NODES"
+  --target="$TARGET"
 
 # Apply the configuration
 echo "Step 3: Applying NixOS configuration..."
-$NIX_INFRA fleet cmd -d "$WORK_DIR" --target="$TEST_NODES" "nixos-rebuild switch --fast"
+$NIX_INFRA fleet cmd -d "$WORK_DIR" --target="$TARGET" "nixos-rebuild switch --fast"
 
 # Restart minio to pick up the secret
 echo "Restarting MinIO service to pick up secret..."
-$NIX_INFRA fleet cmd -d "$WORK_DIR" --target="$TEST_NODES" "systemctl restart minio"
+$NIX_INFRA fleet cmd -d "$WORK_DIR" --target="$TARGET" "systemctl restart minio"
 
 _setup=$(date +%s)
 
@@ -102,7 +102,7 @@ sleep 10
 
 # Check if the systemd service is active
 echo "Checking systemd service status..."
-for node in $TEST_NODES; do
+for node in $TARGET; do
   service_status=$(cmd "$node" "systemctl is-active minio")
   if [[ "$service_status" == *"active"* ]]; then
     echo -e "  ${GREEN}✓${NC} minio: active ($node) [pass]"
@@ -117,7 +117,7 @@ done
 # Check if MinIO process is running
 echo ""
 echo "Checking MinIO process..."
-for node in $TEST_NODES; do
+for node in $TARGET; do
   process_status=$(cmd "$node" "pgrep -a minio")
   if [[ -n "$process_status" ]]; then
     echo -e "  ${GREEN}✓${NC} MinIO process running ($node) [pass]"
@@ -129,7 +129,7 @@ done
 # Check if MinIO API port is listening
 echo ""
 echo "Checking MinIO API port ($MINIO_API_PORT)..."
-for node in $TEST_NODES; do
+for node in $TARGET; do
   port_check=$(cmd "$node" "ss -tlnp | grep $MINIO_API_PORT")
   if [[ "$port_check" == *"$MINIO_API_PORT"* ]]; then
     echo -e "  ${GREEN}✓${NC} API port $MINIO_API_PORT is listening ($node) [pass]"
@@ -141,7 +141,7 @@ done
 # Check if MinIO Console port is listening
 echo ""
 echo "Checking MinIO Console port ($MINIO_CONSOLE_PORT)..."
-for node in $TEST_NODES; do
+for node in $TARGET; do
   port_check=$(cmd "$node" "ss -tlnp | grep $MINIO_CONSOLE_PORT")
   if [[ "$port_check" == *"$MINIO_CONSOLE_PORT"* ]]; then
     echo -e "  ${GREEN}✓${NC} Console port $MINIO_CONSOLE_PORT is listening ($node) [pass]"
@@ -159,7 +159,7 @@ echo "Step 5: Running functional tests..."
 echo ""
 
 # Test MinIO connection and basic operations
-for node in $TEST_NODES; do
+for node in $TARGET; do
   echo "Testing MinIO operations on $node..."
   
   # Configure mc (MinIO client) alias

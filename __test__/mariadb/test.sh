@@ -20,11 +20,11 @@ if [ "$CMD" = "teardown" ]; then
   echo "Tearing down MariaDB test..."
   
   # Stop MariaDB service
-  $NIX_INFRA fleet cmd -d "$WORK_DIR" --target="$TEST_NODES" \
+  $NIX_INFRA fleet cmd -d "$WORK_DIR" --target="$TARGET" \
     'systemctl stop mysql 2>/dev/null || true'
   
   # Clean up data directory
-  $NIX_INFRA fleet cmd -d "$WORK_DIR" --target="$TEST_NODES" \
+  $NIX_INFRA fleet cmd -d "$WORK_DIR" --target="$TARGET" \
     'rm -rf /var/lib/mysql'
   
   echo "MariaDB teardown complete"
@@ -47,11 +47,11 @@ echo ""
 echo "Step 1: Deploying MariaDB configuration..."
 $NIX_INFRA fleet deploy-apps -d "$WORK_DIR" --batch --env="$ENV" \
   --test-dir="$WORK_DIR/$TEST_DIR" \
-  --target="$TEST_NODES"
+  --target="$TARGET"
 
 # Apply the configuration
 echo "Step 2: Applying NixOS configuration..."
-$NIX_INFRA fleet cmd -d "$WORK_DIR" --target="$TEST_NODES" "nixos-rebuild switch --fast"
+$NIX_INFRA fleet cmd -d "$WORK_DIR" --target="$TARGET" "nixos-rebuild switch --fast"
 
 _setup=$(date +%s)
 
@@ -69,7 +69,7 @@ sleep 5
 
 # Check if the systemd service is active
 echo "Checking systemd service status..."
-for node in $TEST_NODES; do
+for node in $TARGET; do
   service_status=$(cmd "$node" "systemctl is-active mysql")
   if [[ "$service_status" == *"active"* ]]; then
     echo -e "  ${GREEN}✓${NC} mysql: active ($node) [pass]"
@@ -84,7 +84,7 @@ done
 # Check if MariaDB process is running
 echo ""
 echo "Checking MariaDB process..."
-for node in $TEST_NODES; do
+for node in $TARGET; do
   process_status=$(cmd "$node" "pgrep -a mariadbd || pgrep -a mysqld")
   if [[ -n "$process_status" ]]; then
     echo -e "  ${GREEN}✓${NC} MariaDB process running ($node) [pass]"
@@ -96,7 +96,7 @@ done
 # Check if MariaDB port is listening
 echo ""
 echo "Checking MariaDB port ($MARIADB_PORT)..."
-for node in $TEST_NODES; do
+for node in $TARGET; do
   port_check=$(cmd "$node" "ss -tlnp | grep $MARIADB_PORT")
   if [[ "$port_check" == *"$MARIADB_PORT"* ]]; then
     echo -e "  ${GREEN}✓${NC} Port $MARIADB_PORT is listening ($node) [pass]"
@@ -114,7 +114,7 @@ echo "Step 4: Running functional tests..."
 echo ""
 
 # Test MariaDB connection and basic operations
-for node in $TEST_NODES; do
+for node in $TARGET; do
   echo "Testing MariaDB operations on $node..."
   
   # Test connection

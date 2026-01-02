@@ -17,11 +17,11 @@ if [ "$CMD" = "teardown" ]; then
   echo "Tearing down PostgreSQL test..."
   
   # Stop PostgreSQL service
-  $NIX_INFRA fleet cmd -d "$WORK_DIR" --target="$TEST_NODES" \
+  $NIX_INFRA fleet cmd -d "$WORK_DIR" --target="$TARGET" \
     'systemctl stop postgresql 2>/dev/null || true'
   
   # Clean up data directory
-  $NIX_INFRA fleet cmd -d "$WORK_DIR" --target="$TEST_NODES" \
+  $NIX_INFRA fleet cmd -d "$WORK_DIR" --target="$TARGET" \
     'rm -rf /var/lib/postgresql'
   
   echo "PostgreSQL teardown complete"
@@ -44,11 +44,11 @@ echo ""
 echo "Step 1: Deploying PostgreSQL configuration..."
 $NIX_INFRA fleet deploy-apps -d "$WORK_DIR" --batch --env="$ENV" \
   --test-dir="$WORK_DIR/$TEST_DIR" \
-  --target="$TEST_NODES"
+  --target="$TARGET"
 
 # Apply the configuration
 echo "Step 2: Applying NixOS configuration..."
-$NIX_INFRA fleet cmd -d "$WORK_DIR" --target="$TEST_NODES" "nixos-rebuild switch --fast"
+$NIX_INFRA fleet cmd -d "$WORK_DIR" --target="$TARGET" "nixos-rebuild switch --fast"
 
 _setup=$(date +%s)
 
@@ -66,7 +66,7 @@ sleep 5
 
 # Check if the systemd service is active
 echo "Checking systemd service status..."
-for node in $TEST_NODES; do
+for node in $TARGET; do
   service_status=$(cmd "$node" "systemctl is-active postgresql")
   if [[ "$service_status" == *"active"* ]]; then
     echo -e "  ${GREEN}✓${NC} postgresql: active ($node) [pass]"
@@ -81,7 +81,7 @@ done
 # Check if PostgreSQL process is running
 echo ""
 echo "Checking PostgreSQL process..."
-for node in $TEST_NODES; do
+for node in $TARGET; do
   process_status=$(cmd "$node" "pgrep -a postgres")
   if [[ -n "$process_status" ]]; then
     echo -e "  ${GREEN}✓${NC} PostgreSQL process running ($node) [pass]"
@@ -93,7 +93,7 @@ done
 # Check if PostgreSQL port is listening
 echo ""
 echo "Checking PostgreSQL port (5432)..."
-for node in $TEST_NODES; do
+for node in $TARGET; do
   port_check=$(cmd "$node" "ss -tlnp | grep 5432")
   if [[ "$port_check" == *"5432"* ]]; then
     echo -e "  ${GREEN}✓${NC} Port 5432 is listening ($node) [pass]"
@@ -111,7 +111,7 @@ echo "Step 4: Running functional tests..."
 echo ""
 
 # Test PostgreSQL connection and basic operations
-for node in $TEST_NODES; do
+for node in $TARGET; do
   echo "Testing PostgreSQL operations on $node..."
   
   # Test connection

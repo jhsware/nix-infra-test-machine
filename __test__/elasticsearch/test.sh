@@ -21,11 +21,11 @@ if [ "$CMD" = "teardown" ]; then
   echo "Tearing down Elasticsearch test..."
   
   # Stop Elasticsearch service
-  $NIX_INFRA fleet cmd -d "$WORK_DIR" --target="$TEST_NODES" \
+  $NIX_INFRA fleet cmd -d "$WORK_DIR" --target="$TARGET" \
     'systemctl stop elasticsearch 2>/dev/null || true'
   
   # Clean up data directory
-  $NIX_INFRA fleet cmd -d "$WORK_DIR" --target="$TEST_NODES" \
+  $NIX_INFRA fleet cmd -d "$WORK_DIR" --target="$TARGET" \
     'rm -rf /var/lib/elasticsearch'
   
   echo "Elasticsearch teardown complete"
@@ -48,11 +48,11 @@ echo ""
 echo "Step 1: Deploying Elasticsearch configuration..."
 $NIX_INFRA fleet deploy-apps -d "$WORK_DIR" --batch --env="$ENV" \
   --test-dir="$WORK_DIR/$TEST_DIR" \
-  --target="$TEST_NODES"
+  --target="$TARGET"
 
 # Apply the configuration
 echo "Step 2: Applying NixOS configuration..."
-$NIX_INFRA fleet cmd -d "$WORK_DIR" --target="$TEST_NODES" "nixos-rebuild switch --fast"
+$NIX_INFRA fleet cmd -d "$WORK_DIR" --target="$TARGET" "nixos-rebuild switch --fast"
 
 _setup=$(date +%s)
 
@@ -70,7 +70,7 @@ sleep 30
 
 # Check if the systemd service is active
 echo "Checking systemd service status..."
-for node in $TEST_NODES; do
+for node in $TARGET; do
   service_status=$(cmd "$node" "systemctl is-active elasticsearch")
   if [[ "$service_status" == *"active"* ]]; then
     echo -e "  ${GREEN}✓${NC} elasticsearch: active ($node) [pass]"
@@ -85,7 +85,7 @@ done
 # Check if Elasticsearch process is running
 echo ""
 echo "Checking Elasticsearch process..."
-for node in $TEST_NODES; do
+for node in $TARGET; do
   process_status=$(cmd "$node" "pgrep -a -f elasticsearch")
   if [[ -n "$process_status" ]]; then
     echo -e "  ${GREEN}✓${NC} Elasticsearch process running ($node) [pass]"
@@ -97,7 +97,7 @@ done
 # Check if Elasticsearch HTTP port is listening
 echo ""
 echo "Checking Elasticsearch HTTP port ($ELASTICSEARCH_HTTP_PORT)..."
-for node in $TEST_NODES; do
+for node in $TARGET; do
   port_check=$(cmd "$node" "ss -tlnp | grep $ELASTICSEARCH_HTTP_PORT")
   if [[ "$port_check" == *"$ELASTICSEARCH_HTTP_PORT"* ]]; then
     echo -e "  ${GREEN}✓${NC} HTTP port $ELASTICSEARCH_HTTP_PORT is listening ($node) [pass]"
@@ -120,7 +120,7 @@ echo "Step 4: Running functional tests..."
 echo ""
 
 # Test Elasticsearch connection and basic operations
-for node in $TEST_NODES; do
+for node in $TARGET; do
   echo "Testing Elasticsearch operations on $node..."
   
   # Test cluster health endpoint

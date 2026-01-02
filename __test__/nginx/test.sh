@@ -18,11 +18,11 @@ if [ "$CMD" = "teardown" ]; then
   echo "Tearing down Nginx test..."
   
   # Stop nginx service
-  $NIX_INFRA fleet cmd -d "$WORK_DIR" --target="$TEST_NODES" \
+  $NIX_INFRA fleet cmd -d "$WORK_DIR" --target="$TARGET" \
     'systemctl stop nginx 2>/dev/null || true'
   
   # Clean up test web content
-  $NIX_INFRA fleet cmd -d "$WORK_DIR" --target="$TEST_NODES" \
+  $NIX_INFRA fleet cmd -d "$WORK_DIR" --target="$TARGET" \
     'rm -rf /var/www/test'
   
   echo "Nginx teardown complete"
@@ -45,11 +45,11 @@ echo ""
 echo "Step 1: Deploying Nginx configuration..."
 $NIX_INFRA fleet deploy-apps -d "$WORK_DIR" --batch --env="$ENV" \
   --test-dir="$WORK_DIR/$TEST_DIR" \
-  --target="$TEST_NODES"
+  --target="$TARGET"
 
 # Apply the configuration
 echo "Step 2: Applying NixOS configuration..."
-$NIX_INFRA fleet cmd -d "$WORK_DIR" --target="$TEST_NODES" "nixos-rebuild switch --fast"
+$NIX_INFRA fleet cmd -d "$WORK_DIR" --target="$TARGET" "nixos-rebuild switch --fast"
 
 _setup=$(date +%s)
 
@@ -67,7 +67,7 @@ sleep 5
 
 # Check if the systemd service is active
 echo "Checking systemd service status..."
-for node in $TEST_NODES; do
+for node in $TARGET; do
   service_status=$(cmd "$node" "systemctl is-active nginx")
   if [[ "$service_status" == *"active"* ]]; then
     echo -e "  ${GREEN}✓${NC} nginx: active ($node) [pass]"
@@ -82,7 +82,7 @@ done
 # Check if nginx process is running
 echo ""
 echo "Checking Nginx process..."
-for node in $TEST_NODES; do
+for node in $TARGET; do
   process_status=$(cmd "$node" "pgrep -a nginx | head -1")
   if [[ -n "$process_status" ]]; then
     echo -e "  ${GREEN}✓${NC} Nginx process running ($node) [pass]"
@@ -94,7 +94,7 @@ done
 # Check if HTTP port is listening
 echo ""
 echo "Checking HTTP port (80)..."
-for node in $TEST_NODES; do
+for node in $TARGET; do
   port_check=$(cmd "$node" "ss -tlnp | grep ':80 '")
   if [[ "$port_check" == *":80"* ]]; then
     echo -e "  ${GREEN}✓${NC} HTTP port 80 is listening ($node) [pass]"
@@ -106,7 +106,7 @@ done
 # Check if HTTPS port is listening (even without certs, nginx binds)
 echo ""
 echo "Checking HTTPS port (443)..."
-for node in $TEST_NODES; do
+for node in $TARGET; do
   port_check=$(cmd "$node" "ss -tlnp | grep ':443 '")
   if [[ "$port_check" == *":443"* ]]; then
     echo -e "  ${GREEN}✓${NC} HTTPS port 443 is listening ($node) [pass]"
@@ -124,7 +124,7 @@ echo ""
 echo "Step 4: Running functional tests..."
 echo ""
 
-for node in $TEST_NODES; do
+for node in $TARGET; do
   echo "Testing Nginx on $node..."
   
   # Test default virtual host - index page

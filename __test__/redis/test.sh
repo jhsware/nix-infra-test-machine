@@ -24,12 +24,12 @@ if [ "$CMD" = "teardown" ]; then
   
   # Stop Redis services
   for server in "${!REDIS_SERVERS[@]}"; do
-    $NIX_INFRA fleet cmd -d "$WORK_DIR" --target="$TEST_NODES" \
+    $NIX_INFRA fleet cmd -d "$WORK_DIR" --target="$TARGET" \
       "systemctl stop $server 2>/dev/null || true"
   done
   
   # Clean up data directories
-  $NIX_INFRA fleet cmd -d "$WORK_DIR" --target="$TEST_NODES" \
+  $NIX_INFRA fleet cmd -d "$WORK_DIR" --target="$TARGET" \
     'rm -rf /var/lib/redis /var/lib/redis-cache'
   
   echo "Redis teardown complete"
@@ -52,11 +52,11 @@ echo ""
 echo "Step 1: Deploying Redis configuration..."
 $NIX_INFRA fleet deploy-apps -d "$WORK_DIR" --batch --env="$ENV" \
   --test-dir="$WORK_DIR/$TEST_DIR" \
-  --target="$TEST_NODES"
+  --target="$TARGET"
 
 # Apply the configuration
 echo "Step 2: Applying NixOS configuration..."
-$NIX_INFRA fleet cmd -d "$WORK_DIR" --target="$TEST_NODES" "nixos-rebuild switch --fast"
+$NIX_INFRA fleet cmd -d "$WORK_DIR" --target="$TARGET" "nixos-rebuild switch --fast"
 
 _setup=$(date +%s)
 
@@ -74,7 +74,7 @@ sleep 5
 
 # Check if the systemd services are active
 echo "Checking systemd service status..."
-for node in $TEST_NODES; do
+for node in $TARGET; do
   for server in "${!REDIS_SERVERS[@]}"; do
     service_status=$(cmd "$node" "systemctl is-active $server")
     if [[ "$service_status" == *"active"* ]]; then
@@ -91,7 +91,7 @@ done
 # Check if Redis processes are running
 echo ""
 echo "Checking Redis processes..."
-for node in $TEST_NODES; do
+for node in $TARGET; do
   process_output=$(cmd "$node" "pgrep -c redis-server || echo 0")
   # Strip node prefix (e.g., "testnode001: 2" -> "2")
   process_count=$(echo "$process_output" | sed 's/^[^:]*: //' | tr -d '[:space:]')
@@ -107,7 +107,7 @@ done
 # Check if Redis ports are listening
 echo ""
 echo "Checking Redis ports..."
-for node in $TEST_NODES; do
+for node in $TARGET; do
   for server in "${!REDIS_SERVERS[@]}"; do
     port=${REDIS_SERVERS[$server]}
     port_check=$(cmd "$node" "ss -tlnp | grep :$port")
@@ -128,7 +128,7 @@ echo "Step 4: Running functional tests..."
 echo ""
 
 # Test Redis connection and basic operations on each server
-for node in $TEST_NODES; do
+for node in $TARGET; do
   for server in "${!REDIS_SERVERS[@]}"; do
     port=${REDIS_SERVERS[$server]}
     echo "Testing $server (port $port) on $node..."
@@ -194,7 +194,7 @@ done
 echo "Step 5: Testing server isolation..."
 echo ""
 
-for node in $TEST_NODES; do
+for node in $TARGET; do
   echo "Testing data isolation on $node..."
   
   # Set a key on the default server

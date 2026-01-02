@@ -18,19 +18,19 @@ if [ "$CMD" = "teardown" ]; then
   echo "Tearing down Nextcloud test..."
   
   # Stop services in reverse order
-  $NIX_INFRA fleet cmd -d "$WORK_DIR" --target="$TEST_NODES" \
+  $NIX_INFRA fleet cmd -d "$WORK_DIR" --target="$TARGET" \
     'systemctl stop nginx 2>/dev/null || true'
-  $NIX_INFRA fleet cmd -d "$WORK_DIR" --target="$TEST_NODES" \
+  $NIX_INFRA fleet cmd -d "$WORK_DIR" --target="$TARGET" \
     'systemctl stop phpfpm-nextcloud 2>/dev/null || true'
-  $NIX_INFRA fleet cmd -d "$WORK_DIR" --target="$TEST_NODES" \
+  $NIX_INFRA fleet cmd -d "$WORK_DIR" --target="$TARGET" \
     'systemctl stop nextcloud-cron 2>/dev/null || true'
-  $NIX_INFRA fleet cmd -d "$WORK_DIR" --target="$TEST_NODES" \
+  $NIX_INFRA fleet cmd -d "$WORK_DIR" --target="$TARGET" \
     'systemctl stop redis-nextcloud 2>/dev/null || true'
-  $NIX_INFRA fleet cmd -d "$WORK_DIR" --target="$TEST_NODES" \
+  $NIX_INFRA fleet cmd -d "$WORK_DIR" --target="$TARGET" \
     'systemctl stop postgresql 2>/dev/null || true'
   
   # Clean up data directories
-  $NIX_INFRA fleet cmd -d "$WORK_DIR" --target="$TEST_NODES" \
+  $NIX_INFRA fleet cmd -d "$WORK_DIR" --target="$TARGET" \
     'rm -rf /var/lib/nextcloud /var/lib/postgresql /var/lib/redis-nextcloud /run/secrets/nextcloud-admin-pass'
   
   echo "Nextcloud teardown complete"
@@ -53,11 +53,11 @@ echo ""
 echo "Step 1: Deploying Nextcloud configuration..."
 $NIX_INFRA fleet deploy-apps -d "$WORK_DIR" --batch --env="$ENV" \
   --test-dir="$WORK_DIR/$TEST_DIR" \
-  --target="$TEST_NODES"
+  --target="$TARGET"
 
 # Apply the configuration
 echo "Step 2: Applying NixOS configuration..."
-$NIX_INFRA fleet cmd -d "$WORK_DIR" --target="$TEST_NODES" "nixos-rebuild switch --fast"
+$NIX_INFRA fleet cmd -d "$WORK_DIR" --target="$TARGET" "nixos-rebuild switch --fast"
 
 _setup=$(date +%s)
 
@@ -84,7 +84,7 @@ echo ""
 # Array of services to check (in dependency order)
 SERVICES=("postgresql" "redis-nextcloud" "nextcloud-setup" "phpfpm-nextcloud" "nginx")
 
-for node in $TEST_NODES; do
+for node in $TARGET; do
   echo "Checking services on $node..."
   
   for service in "${SERVICES[@]}"; do
@@ -128,7 +128,7 @@ echo ""
 echo "Step 4: Verifying service dependencies..."
 echo ""
 
-for node in $TEST_NODES; do
+for node in $TARGET; do
   echo "Checking service dependencies on $node..."
   
   # Check PostgreSQL started before nextcloud-setup
@@ -177,7 +177,7 @@ echo ""
 echo "Step 5: Checking port bindings..."
 echo ""
 
-for node in $TEST_NODES; do
+for node in $TARGET; do
   echo "Checking ports on $node..."
   
   # Check PostgreSQL port
@@ -213,7 +213,7 @@ echo ""
 echo "Step 6: Running functional tests..."
 echo ""
 
-for node in $TEST_NODES; do
+for node in $TARGET; do
   echo "Testing Nextcloud on $node..."
   
   # Test Nextcloud HTTP response
