@@ -7,12 +7,6 @@
 # 3. Tests Nextcloud endpoints and functionality
 # 4. Cleans up on teardown
 
-# Colors
-GREEN='\033[0;32m'
-RED='\033[0;31m'
-YELLOW='\033[1;33m'
-NC='\033[0m' # No Color
-
 # Handle teardown command
 if [ "$CMD" = "teardown" ]; then
   echo "Tearing down Nextcloud test..."

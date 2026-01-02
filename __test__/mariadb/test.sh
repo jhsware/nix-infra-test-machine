@@ -7,11 +7,6 @@
 # 3. Tests basic MariaDB operations (create table, insert, query)
 # 4. Cleans up on teardown
 
-# Colors
-GREEN='\033[0;32m'
-RED='\033[0;31m'
-NC='\033[0m' # No Color
-
 # MariaDB port
 MARIADB_PORT=3306
 

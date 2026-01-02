@@ -7,11 +7,6 @@
 # 3. Tests basic Redis operations on each server
 # 4. Cleans up on teardown
 
-# Colors
-GREEN='\033[0;32m'
-RED='\033[0;31m'
-NC='\033[0m' # No Color
-
 # Server configurations: name:port
 declare -A REDIS_SERVERS=(
   ["redis"]=6379

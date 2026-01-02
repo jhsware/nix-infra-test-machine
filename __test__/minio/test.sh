@@ -8,11 +8,6 @@
 # 4. Tests basic MinIO operations (bucket/object operations)
 # 5. Cleans up on teardown
 
-# Colors
-GREEN='\033[0;32m'
-RED='\033[0;31m'
-NC='\033[0m' # No Color
-
 # Custom ports for testing
 MINIO_API_PORT=9002
 MINIO_CONSOLE_PORT=9003

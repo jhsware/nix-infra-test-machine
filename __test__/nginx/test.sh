@@ -8,11 +8,6 @@
 # 4. Tests virtual host routing
 # 5. Cleans up on teardown
 
-# Colors
-GREEN='\033[0;32m'
-RED='\033[0;31m'
-NC='\033[0m' # No Color
-
 # Handle teardown command
 if [ "$CMD" = "teardown" ]; then
   echo "Tearing down Nginx test..."
