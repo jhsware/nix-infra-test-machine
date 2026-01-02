@@ -12,5 +12,6 @@
     ./nextcloud
     ./home-assistant
     ./n8n
+    ./n8n-pod
   ];
 }
