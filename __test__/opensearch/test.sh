@@ -59,11 +59,15 @@ echo ""
 echo "Step 3: Verifying OpenSearch deployment..."
 echo ""
 
-# Wait for service to start (OpenSearch can take a while to initialize)
-echo "Waiting for OpenSearch service to start (this may take up to 60 seconds)..."
-sleep 30
+# Wait for OpenSearch service and API to be ready
+for node in $TARGET; do
+  wait_for_service "$node" "opensearch" --timeout=60
+  wait_for_port "$node" "$OPENSEARCH_HTTP_PORT" --timeout=30
+  wait_for_elasticsearch "$node" "$OPENSEARCH_HTTP_PORT" --timeout=60  # Same API as Elasticsearch
+done
 
 # Check if the systemd service is active
+echo ""
 echo "Checking systemd service status..."
 for node in $TARGET; do
   assert_service_active "$node" "opensearch" || show_service_logs "$node" "opensearch" 50
@@ -82,11 +86,6 @@ echo "Checking OpenSearch HTTP port ($OPENSEARCH_HTTP_PORT)..."
 for node in $TARGET; do
   assert_port_listening "$node" "$OPENSEARCH_HTTP_PORT" "HTTP port $OPENSEARCH_HTTP_PORT"
 done
-
-# Wait a bit more for HTTP API to be ready
-echo ""
-echo "Waiting for HTTP API to be ready..."
-sleep 10
 
 # ============================================================================
 # Functional Tests

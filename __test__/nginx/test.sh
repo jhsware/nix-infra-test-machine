@@ -56,11 +56,15 @@ echo ""
 echo "Step 3: Verifying Nginx deployment..."
 echo ""
 
-# Wait for service to start
-echo "Waiting for Nginx service to start..."
-sleep 5
+# Wait for service and ports to be ready
+for node in $TARGET; do
+  wait_for_service "$node" "nginx" --timeout=30
+  wait_for_port "$node" "80" --timeout=15
+  wait_for_http "$node" "http://127.0.0.1/" "200" --timeout=30
+done
 
 # Check if the systemd service is active
+echo ""
 echo "Checking systemd service status..."
 for node in $TARGET; do
   assert_service_active "$node" "nginx" || show_service_logs "$node" "nginx" 50

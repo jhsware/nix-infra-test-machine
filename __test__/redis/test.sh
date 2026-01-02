@@ -64,10 +64,16 @@ echo "Step 3: Verifying Redis deployment..."
 echo ""
 
 # Wait for services to start
-echo "Waiting for Redis services to start..."
-sleep 5
+for node in $TARGET; do
+  for server in "${!REDIS_SERVERS[@]}"; do
+    port=${REDIS_SERVERS[$server]}
+    wait_for_service "$node" "$server" --timeout=30
+    wait_for_redis "$node" "$port" --timeout=15
+  done
+done
 
 # Check if the systemd services are active
+echo ""
 echo "Checking systemd service status..."
 for node in $TARGET; do
   for server in "${!REDIS_SERVERS[@]}"; do

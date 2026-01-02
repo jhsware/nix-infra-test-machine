@@ -55,11 +55,15 @@ echo ""
 echo "Step 3: Verifying PostgreSQL deployment..."
 echo ""
 
-# Wait for service to start
-echo "Waiting for PostgreSQL service to start..."
-sleep 5
+# Wait for service and database to be ready
+for node in $TARGET; do
+  wait_for_service "$node" "postgresql" --timeout=30
+  wait_for_port "$node" "5432" --timeout=15
+  wait_for_postgresql "$node" --timeout=30
+done
 
 # Check if the systemd service is active
+echo ""
 echo "Checking systemd service status..."
 for node in $TARGET; do
   assert_service_active "$node" "postgresql" || show_service_logs "$node" "postgresql" 30

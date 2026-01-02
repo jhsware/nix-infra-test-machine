@@ -58,11 +58,15 @@ echo ""
 echo "Step 3: Verifying MongoDB deployment..."
 echo ""
 
-# Wait for service to start
-echo "Waiting for MongoDB service to start..."
-sleep 5
+# Wait for service and database to be ready
+for node in $TARGET; do
+  wait_for_service "$node" "mongodb" --timeout=30
+  wait_for_port "$node" "$MONGODB_PORT" --timeout=15
+  wait_for_mongodb "$node" "$MONGODB_PORT" --timeout=30
+done
 
 # Check if the systemd service is active
+echo ""
 echo "Checking systemd service status..."
 for node in $TARGET; do
   assert_service_active "$node" "mongodb" || show_service_logs "$node" "mongodb" 30

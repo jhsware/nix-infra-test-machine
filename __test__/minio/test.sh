@@ -87,11 +87,16 @@ echo ""
 echo "Step 4: Verifying MinIO deployment..."
 echo ""
 
-# Wait for service to start
-echo "Waiting for MinIO service to start..."
-sleep 10
+# Wait for service and ports to be ready
+for node in $TARGET; do
+  wait_for_service "$node" "minio" --timeout=30
+  wait_for_port "$node" "$MINIO_API_PORT" --timeout=15
+  wait_for_port "$node" "$MINIO_CONSOLE_PORT" --timeout=15
+  wait_for_http "$node" "http://127.0.0.1:$MINIO_API_PORT/minio/health/live" "200" --timeout=30
+done
 
 # Check if the systemd service is active
+echo ""
 echo "Checking systemd service status..."
 for node in $TARGET; do
   assert_service_active "$node" "minio" || show_service_logs "$node" "minio" 50

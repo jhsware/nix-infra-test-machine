@@ -61,9 +61,12 @@ echo ""
 echo "Step 3: Verifying n8n deployment..."
 echo ""
 
-# Wait for services to start (n8n may take time to initialize)
-echo "Waiting for services to start..."
-sleep 15
+# Wait for service and HTTP to be ready (n8n may take time to initialize)
+for node in $TARGET; do
+  wait_for_service "$node" "n8n" --timeout=60
+  wait_for_port "$node" "5678" --timeout=30
+  wait_for_http "$node" "http://localhost:5678/" "200 302 303" --timeout=60
+done
 
 # ============================================================================
 # Check Service Status

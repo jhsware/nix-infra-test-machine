@@ -63,9 +63,23 @@ echo ""
 echo "Step 3: Verifying Nextcloud deployment..."
 echo ""
 
-# Wait for services to start (Nextcloud setup can take some time)
-echo "Waiting for services to start (this may take a while for initial setup)..."
-sleep 15
+# Wait for services to start (Nextcloud has multiple dependencies)
+for node in $TARGET; do
+  # Wait for backend services first
+  wait_for_service "$node" "postgresql" --timeout=30
+  wait_for_postgresql "$node" --timeout=30
+  wait_for_service "$node" "redis-nextcloud" --timeout=30
+  wait_for_redis "$node" "6379" --timeout=15
+  
+  # Wait for nextcloud-setup oneshot to complete
+  wait_for_service_completed "$node" "nextcloud-setup" --timeout=120
+  
+  # Wait for web services
+  wait_for_service "$node" "phpfpm-nextcloud" --timeout=30
+  wait_for_service "$node" "nginx" --timeout=30
+  wait_for_port "$node" "80" --timeout=15
+  wait_for_http "$node" "http://localhost/" "200 302 303" --timeout=60
+done
 
 # ============================================================================
 # Check Service Status

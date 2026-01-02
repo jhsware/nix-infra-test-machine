@@ -55,9 +55,13 @@ echo ""
 echo "Step 3: Verifying n8n-pod deployment..."
 echo ""
 
-# Wait for container to start and n8n to initialize
-echo "Waiting for n8n container to start..."
-sleep 15
+# Wait for service, container and HTTP to be ready
+for node in $TARGET; do
+  wait_for_service "$node" "podman-n8n-pod" --timeout=60
+  wait_for_container "$node" "n8n-pod" --timeout=60
+  wait_for_port "$node" "5678" --timeout=30
+  wait_for_http "$node" "http://localhost:5678/" "200 302 303" --timeout=60
+done
 
 # ============================================================================
 # Check Service Status

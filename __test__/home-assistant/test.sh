@@ -55,9 +55,12 @@ echo ""
 echo "Step 3: Verifying Home Assistant deployment..."
 echo ""
 
-# Wait for services to start (Home Assistant can take some time to initialize)
-echo "Waiting for Home Assistant to start (this may take a while for initial setup)..."
-sleep 30
+# Wait for service and HTTP to be ready (Home Assistant can take a while to initialize)
+for node in $TARGET; do
+  wait_for_service "$node" "home-assistant" --timeout=60
+  wait_for_port "$node" "8123" --timeout=30
+  wait_for_http "$node" "http://localhost:8123/" "200 302 303" --timeout=90
+done
 
 # ============================================================================
 # Check Service Status
