@@ -46,6 +46,8 @@
     # Additional settings (environment variables)
     settings = {
       GENERIC_TIMEZONE = "UTC";
+      # Enable public API for testing
+      N8N_PUBLIC_API_ENABLED = "true";
     };
 
   };

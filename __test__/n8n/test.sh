@@ -4,7 +4,7 @@
 # This test:
 # 1. Deploys n8n with SQLite backend
 # 2. Verifies all services are running
-# 3. Tests n8n endpoints and functionality
+# 3. Tests n8n endpoints and REST API functionality
 # 4. Cleans up on teardown
 
 # Colors
@@ -20,14 +20,20 @@ if [ "$CMD" = "teardown" ]; then
   # Stop services
   $NIX_INFRA fleet cmd -d "$WORK_DIR" --target="$TARGET" \
     'systemctl stop n8n 2>/dev/null || true'
-  
-  # Clean up data directories
+    
+  # Clean up entire n8n data directory including SQLite database
+  echo "  Removing n8n data directory..."
   $NIX_INFRA fleet cmd -d "$WORK_DIR" --target="$TARGET" \
     'rm -rf /var/lib/n8n'
   
+  # Clean up temporary cookie file used in tests
+  $NIX_INFRA fleet cmd -d "$WORK_DIR" --target="$TARGET" \
+    'rm -f /tmp/n8n-cookies.txt 2>/dev/null || true'
+    
   echo "n8n teardown complete"
   return 0
 fi
+
 
 # ============================================================================
 # Test Setup
@@ -142,22 +148,115 @@ for node in $TARGET; do
     echo -e "  ${YELLOW}!${NC} n8n healthcheck response: $healthcheck [fail]"
   fi
   
-  # Test n8n API types endpoint (should list available node types)
-  echo "  Testing n8n API endpoint..."
-  api_response=$(cmd "$node" "curl -s http://localhost:5678/api/v1/node-types 2>/dev/null | head -c 200")
-  if [[ "$api_response" == *"data"* ]] || [[ "$api_response" == *"type"* ]]; then
-    echo -e "  ${GREEN}✓${NC} n8n API is responding [pass]"
+  # ============================================================================
+  # Authenticated REST API Tests (using session cookie)
+  # ============================================================================
+  echo "  Setting up authentication for API testing..."
+  
+  # Create authentication test script using base64 to avoid escaping issues
+  AUTH_SCRIPT='#!/usr/bin/env bash
+
+# Step 1: Create owner user (will fail if already exists, which is fine)
+curl -s -X POST http://localhost:5678/rest/owner/setup \
+  -H "Content-Type: application/json" \
+  -d "{\"email\":\"test@example.com\",\"firstName\":\"Test\",\"lastName\":\"User\",\"password\":\"TestPassword123!\"}" > /tmp/n8n-owner-result.json 2>&1
+
+# Step 2: Login and get session cookie
+curl -s -c /tmp/n8n-cookies.txt -X POST http://localhost:5678/rest/login \
+  -H "Content-Type: application/json" \
+  -d "{\"emailOrLdapLoginId\":\"test@example.com\",\"password\":\"TestPassword123!\"}" > /tmp/n8n-login-result.json 2>&1
+
+# Check login result
+if grep -q "test@example.com" /tmp/n8n-login-result.json 2>/dev/null; then
+  echo "LOGIN_SUCCESS"
+  
+  # Step 3: Test REST API with session cookie (list workflows)
+  WORKFLOWS_RESPONSE=$(curl -s -b /tmp/n8n-cookies.txt http://localhost:5678/rest/workflows 2>&1)
+  
+  if echo "$WORKFLOWS_RESPONSE" | jq -e ".data" > /dev/null 2>&1; then
+    WORKFLOW_COUNT=$(echo "$WORKFLOWS_RESPONSE" | jq -r ".data | length")
+    echo "REST_API_SUCCESS:workflows=$WORKFLOW_COUNT"
   else
-    echo -e "  ${YELLOW}!${NC} n8n API response: ${api_response:0:100} [fail]"
+    echo "REST_API_FAILED:$WORKFLOWS_RESPONSE"
   fi
   
+  # Step 4: Test creating a workflow via REST API
+  CREATE_WORKFLOW_RESPONSE=$(curl -s -b /tmp/n8n-cookies.txt -X POST http://localhost:5678/rest/workflows \
+    -H "Content-Type: application/json" \
+    -d "{\"name\":\"Test Workflow\",\"nodes\":[],\"connections\":{},\"settings\":{},\"active\":false}" 2>&1)
+  
+  if echo "$CREATE_WORKFLOW_RESPONSE" | jq -e ".data.id" > /dev/null 2>&1; then
+    WORKFLOW_ID=$(echo "$CREATE_WORKFLOW_RESPONSE" | jq -r ".data.id")
+    echo "WORKFLOW_CREATED:$WORKFLOW_ID"
+    
+    # Step 5: Delete the test workflow
+    DELETE_RESPONSE=$(curl -s -b /tmp/n8n-cookies.txt -X DELETE "http://localhost:5678/rest/workflows/$WORKFLOW_ID" 2>&1)
+    if echo "$DELETE_RESPONSE" | jq -e ".data" > /dev/null 2>&1; then
+      echo "WORKFLOW_DELETED"
+    else
+      echo "WORKFLOW_DELETE_FAILED:$DELETE_RESPONSE"
+    fi
+  else
+    echo "WORKFLOW_CREATE_FAILED:$CREATE_WORKFLOW_RESPONSE"
+  fi
+  
+else
+  echo "LOGIN_FAILED:$(cat /tmp/n8n-login-result.json)"
+fi
+
+# Cleanup
+rm -f /tmp/n8n-owner-result.json /tmp/n8n-login-result.json /tmp/n8n-cookies.txt
+'
+
+  # Encode script and send to remote node
+  AUTH_SCRIPT_B64=$(echo "$AUTH_SCRIPT" | base64 -w0)
+  cmd "$node" "echo '$AUTH_SCRIPT_B64' | base64 -d > /tmp/n8n-auth-test.sh && chmod +x /tmp/n8n-auth-test.sh"
+  
+  # Run the auth test script
+  auth_result=$(cmd "$node" "bash /tmp/n8n-auth-test.sh")
+  cmd "$node" "rm -f /tmp/n8n-auth-test.sh"
+  
+  # Parse results
+  if [[ "$auth_result" == *"LOGIN_SUCCESS"* ]]; then
+    echo -e "  ${GREEN}✓${NC} Login successful [pass]"
+    
+    # Check REST API access with session cookie
+    if [[ "$auth_result" == *"REST_API_SUCCESS:"* ]]; then
+      rest_info=$(echo "$auth_result" | grep "REST_API_SUCCESS:" | sed 's/.*REST_API_SUCCESS://')
+      echo -e "  ${GREEN}✓${NC} REST API accessible ($rest_info) [pass]"
+    elif [[ "$auth_result" == *"REST_API_FAILED:"* ]]; then
+      rest_error=$(echo "$auth_result" | grep "REST_API_FAILED:" | sed 's/.*REST_API_FAILED://')
+      echo -e "  ${RED}✗${NC} REST API failed: ${rest_error:0:100} [fail]"
+    fi
+    
+    # Check workflow CRUD operations
+    if [[ "$auth_result" == *"WORKFLOW_CREATED:"* ]]; then
+      workflow_id=$(echo "$auth_result" | grep "WORKFLOW_CREATED:" | sed 's/.*WORKFLOW_CREATED://')
+      echo -e "  ${GREEN}✓${NC} Workflow created (id: $workflow_id) [pass]"
+      
+      if [[ "$auth_result" == *"WORKFLOW_DELETED"* ]]; then
+        echo -e "  ${GREEN}✓${NC} Workflow deleted [pass]"
+      elif [[ "$auth_result" == *"WORKFLOW_DELETE_FAILED:"* ]]; then
+        delete_error=$(echo "$auth_result" | grep "WORKFLOW_DELETE_FAILED:" | sed 's/.*WORKFLOW_DELETE_FAILED://')
+        echo -e "  ${RED}✗${NC} Workflow delete failed: ${delete_error:0:100} [fail]"
+      fi
+    elif [[ "$auth_result" == *"WORKFLOW_CREATE_FAILED:"* ]]; then
+      create_error=$(echo "$auth_result" | grep "WORKFLOW_CREATE_FAILED:" | sed 's/.*WORKFLOW_CREATE_FAILED://')
+      echo -e "  ${RED}✗${NC} Workflow create failed: ${create_error:0:100} [fail]"
+    fi
+    
+  else
+    login_error=$(echo "$auth_result" | grep "LOGIN_FAILED:" | sed 's/.*LOGIN_FAILED://')
+    echo -e "  ${RED}✗${NC} Login failed: ${login_error:0:100} [fail]"
+  fi
+
   # Check n8n data directory exists
   echo "  Testing n8n data directory..."
   data_exists=$(cmd "$node" "test -d /var/lib/n8n && echo 'exists' || echo 'missing'")
   if [[ "$data_exists" == *"exists"* ]]; then
     echo -e "  ${GREEN}✓${NC} n8n data directory exists [pass]"
   else
-    echo -e "  ${YELLOW}!${NC} n8n data directory not found [fail]"
+    echo -e "  ${RED}✗${NC} n8n data directory not found [fail]"
   fi
   
   # Check SQLite database file exists
@@ -166,22 +265,22 @@ for node in $TARGET; do
   if [[ "$sqlite_exists" == *"exists"* ]]; then
     echo -e "  ${GREEN}✓${NC} SQLite database file exists [pass]"
   else
-    echo -e "  ${YELLOW}!${NC} SQLite database file not found (may be created on first use) [fail]"
+    echo -e "  ${RED}✗${NC} SQLite database file not found [fail]"
   fi
   
-  # Check service is not in error state
+  # Check service is not in error state (handle node-prefixed output)
   echo "  Checking service state..."
   service_state=$(cmd "$node" "systemctl show -p SubState n8n --value")
-  if [[ "$service_state" == "running" ]]; then
+  if [[ "$service_state" == *"running"* ]]; then
     echo -e "  ${GREEN}✓${NC} Service is running normally [pass]"
   else
-    echo -e "  ${YELLOW}!${NC} Service state: $service_state [fail]"
+    echo -e "  ${RED}✗${NC} Service state: $service_state [fail]"
   fi
   
   # Check for any failed units related to n8n
   echo "  Checking for failed units..."
   failed_units=$(cmd "$node" "systemctl list-units --failed | grep -i n8n || echo 'none'")
-  if [[ "$failed_units" == *"none"* ]] || [[ -z "$failed_units" ]]; then
+  if [[ "$failed_units" == *"none"* ]] || [[ -z "$failed_units" ]] || [[ ! "$failed_units" == *"failed"* ]]; then
     echo -e "  ${GREEN}✓${NC} No failed n8n related units [pass]"
   else
     echo -e "  ${RED}✗${NC} Failed units found: $failed_units [fail]"
@@ -189,9 +288,9 @@ for node in $TARGET; do
   
   # Check n8n process is running
   echo "  Checking n8n process..."
-  n8n_process=$(cmd "$node" "pgrep -f n8n || echo 'not_found'")
-  if [[ "$n8n_process" != *"not_found"* ]] && [[ -n "$n8n_process" ]]; then
-    echo -e "  ${GREEN}✓${NC} n8n process is running (PID: $n8n_process) [pass]"
+  n8n_process=$(cmd "$node" "pgrep -f 'n8n' | head -1 || echo 'not_found'")
+  if [[ "$n8n_process" != *"not_found"* ]] && [[ -n "$n8n_process" ]] && [[ "$n8n_process" =~ [0-9] ]]; then
+    echo -e "  ${GREEN}✓${NC} n8n process is running [pass]"
   else
     echo -e "  ${RED}✗${NC} n8n process not found [fail]"
   fi
