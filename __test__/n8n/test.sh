@@ -1,8 +1,6 @@
 #!/usr/bin/env bash
 # n8n test for nix-infra-machine
 #
-# IMPORTANT: This test requires NixOS 25.11 to avoid slow install.
-#
 # This test:
 # 1. Deploys n8n with SQLite backend
 # 2. Verifies all services are running

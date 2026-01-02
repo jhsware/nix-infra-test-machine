@@ -9,11 +9,18 @@ in
   options.infrastructure.${appName} = {
     enable = lib.mkEnableOption "infrastructure.n8n";
 
-    package = lib.mkOption {
-      type = lib.types.package;
-      description = "n8n package to use.";
-      default = pkgs.n8n;
-      example = "pkgs.n8n";
+    # ==========================================================================
+    # Build Configuration
+    # ==========================================================================
+
+    buildMemoryMB = lib.mkOption {
+      type = lib.types.int;
+      description = ''
+        Maximum Node.js heap size in MB for building n8n.
+        Increase this if you encounter "JavaScript heap out of memory" errors during build.
+      '';
+      default = 4096;
+      example = 8192;
     };
 
     # ==========================================================================
@@ -202,6 +209,20 @@ in
   };
 
   config = lib.mkIf cfg.enable {
+    # ==========================================================================
+    # Override n8n package with increased memory for build
+    # ==========================================================================
+
+    nixpkgs.overlays = [
+      (final: prev: {
+        n8n = prev.n8n.overrideAttrs (oldAttrs: {
+          env = (oldAttrs.env or {}) // {
+            NODE_OPTIONS = "--max-old-space-size=${toString cfg.buildMemoryMB}";
+          };
+        });
+      })
+    ];
+
     # ==========================================================================
     # n8n Service Configuration
     # ==========================================================================
