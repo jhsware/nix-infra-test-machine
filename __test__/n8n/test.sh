@@ -86,8 +86,8 @@ for node in $TARGET; do
   echo "Checking services on $node..."
   
   for service in "${SERVICES[@]}"; do
-    service_status=$(cmd "$node" "systemctl is-active $service")
-    if [[ "$service_status" == *"active"* ]]; then
+    service_status=$(cmd_value "$node" "systemctl is-active $service")
+    if [[ "$service_status" == "active" ]]; then
       echo -e "  ${GREEN}✓${NC} $service: active [pass]"
     else
       echo -e "  ${RED}✗${NC} $service: $service_status [fail]"
@@ -131,9 +131,9 @@ for node in $TARGET; do
   
   # Test n8n HTTP response
   echo "  Testing n8n HTTP response..."
-  http_code=$(cmd "$node" "curl -s -o /dev/null -w '%{http_code}' http://localhost:5678/ 2>/dev/null || echo '000'")
+  http_code=$(cmd_value "$node" "curl -s -o /dev/null -w '%{http_code}' http://localhost:5678/ 2>/dev/null || echo '000'")
   # n8n may return 200 or redirect to setup/login
-  if [[ "$http_code" == *"200"* ]] || [[ "$http_code" == *"302"* ]] || [[ "$http_code" == *"303"* ]]; then
+  if [[ "$http_code" == "200" ]] || [[ "$http_code" == "302" ]] || [[ "$http_code" == "303" ]]; then
     echo -e "  ${GREEN}✓${NC} HTTP response code: $http_code [pass]"
   else
     echo -e "  ${RED}✗${NC} HTTP response code: $http_code [fail]"
@@ -141,7 +141,7 @@ for node in $TARGET; do
   
   # Test n8n healthcheck endpoint
   echo "  Testing n8n healthcheck endpoint..."
-  healthcheck=$(cmd "$node" "curl -s http://localhost:5678/healthz 2>/dev/null")
+  healthcheck=$(cmd_clean "$node" "curl -s http://localhost:5678/healthz 2>/dev/null")
   if [[ "$healthcheck" == *"ok"* ]] || [[ "$healthcheck" == *"healthy"* ]] || [[ -n "$healthcheck" ]]; then
     echo -e "  ${GREEN}✓${NC} n8n healthcheck responded: $healthcheck [pass]"
   else
@@ -213,7 +213,7 @@ rm -f /tmp/n8n-owner-result.json /tmp/n8n-login-result.json /tmp/n8n-cookies.txt
   cmd "$node" "echo '$AUTH_SCRIPT_B64' | base64 -d > /tmp/n8n-auth-test.sh && chmod +x /tmp/n8n-auth-test.sh"
   
   # Run the auth test script
-  auth_result=$(cmd "$node" "bash /tmp/n8n-auth-test.sh")
+  auth_result=$(cmd_clean "$node" "bash /tmp/n8n-auth-test.sh")
   cmd "$node" "rm -f /tmp/n8n-auth-test.sh"
   
   # Parse results
@@ -252,8 +252,8 @@ rm -f /tmp/n8n-owner-result.json /tmp/n8n-login-result.json /tmp/n8n-cookies.txt
 
   # Check n8n data directory exists
   echo "  Testing n8n data directory..."
-  data_exists=$(cmd "$node" "test -d /var/lib/n8n && echo 'exists' || echo 'missing'")
-  if [[ "$data_exists" == *"exists"* ]]; then
+  data_exists=$(cmd_value "$node" "test -d /var/lib/n8n && echo 'exists' || echo 'missing'")
+  if [[ "$data_exists" == "exists" ]]; then
     echo -e "  ${GREEN}✓${NC} n8n data directory exists [pass]"
   else
     echo -e "  ${RED}✗${NC} n8n data directory not found [fail]"
@@ -261,8 +261,8 @@ rm -f /tmp/n8n-owner-result.json /tmp/n8n-login-result.json /tmp/n8n-cookies.txt
   
   # Check SQLite database file exists
   echo "  Testing SQLite database file..."
-  sqlite_exists=$(cmd "$node" "test -f /var/lib/n8n/.n8n/database.sqlite && echo 'exists' || echo 'missing'")
-  if [[ "$sqlite_exists" == *"exists"* ]]; then
+  sqlite_exists=$(cmd_value "$node" "test -f /var/lib/n8n/.n8n/database.sqlite && echo 'exists' || echo 'missing'")
+  if [[ "$sqlite_exists" == "exists" ]]; then
     echo -e "  ${GREEN}✓${NC} SQLite database file exists [pass]"
   else
     echo -e "  ${RED}✗${NC} SQLite database file not found [fail]"
@@ -270,8 +270,8 @@ rm -f /tmp/n8n-owner-result.json /tmp/n8n-login-result.json /tmp/n8n-cookies.txt
   
   # Check service is not in error state (handle node-prefixed output)
   echo "  Checking service state..."
-  service_state=$(cmd "$node" "systemctl show -p SubState n8n --value")
-  if [[ "$service_state" == *"running"* ]]; then
+  service_state=$(cmd_value "$node" "systemctl show -p SubState n8n --value")
+  if [[ "$service_state" == "running" ]]; then
     echo -e "  ${GREEN}✓${NC} Service is running normally [pass]"
   else
     echo -e "  ${RED}✗${NC} Service state: $service_state [fail]"
@@ -279,7 +279,7 @@ rm -f /tmp/n8n-owner-result.json /tmp/n8n-login-result.json /tmp/n8n-cookies.txt
   
   # Check for any failed units related to n8n
   echo "  Checking for failed units..."
-  failed_units=$(cmd "$node" "systemctl list-units --failed | grep -i n8n || echo 'none'")
+  failed_units=$(cmd_clean "$node" "systemctl list-units --failed | grep -i n8n || echo 'none'")
   if [[ "$failed_units" == *"none"* ]] || [[ -z "$failed_units" ]] || [[ ! "$failed_units" == *"failed"* ]]; then
     echo -e "  ${GREEN}✓${NC} No failed n8n related units [pass]"
   else
@@ -288,8 +288,8 @@ rm -f /tmp/n8n-owner-result.json /tmp/n8n-login-result.json /tmp/n8n-cookies.txt
   
   # Check n8n process is running
   echo "  Checking n8n process..."
-  n8n_process=$(cmd "$node" "pgrep -f 'n8n' | head -1 || echo 'not_found'")
-  if [[ "$n8n_process" != *"not_found"* ]] && [[ -n "$n8n_process" ]] && [[ "$n8n_process" =~ [0-9] ]]; then
+  n8n_process=$(cmd_clean "$node" "pgrep -f 'n8n' | head -1 || echo 'not_found'")
+  if [[ "$n8n_process" != "not_found" ]] && [[ -n "$n8n_process" ]] && [[ "$n8n_process" =~ [0-9] ]]; then
     echo -e "  ${GREEN}✓${NC} n8n process is running [pass]"
   else
     echo -e "  ${RED}✗${NC} n8n process not found [fail]"

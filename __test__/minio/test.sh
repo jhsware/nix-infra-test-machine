@@ -103,8 +103,8 @@ sleep 10
 # Check if the systemd service is active
 echo "Checking systemd service status..."
 for node in $TARGET; do
-  service_status=$(cmd "$node" "systemctl is-active minio")
-  if [[ "$service_status" == *"active"* ]]; then
+  service_status=$(cmd_value "$node" "systemctl is-active minio")
+  if [[ "$service_status" == "active" ]]; then
     echo -e "  ${GREEN}✓${NC} minio: active ($node) [pass]"
   else
     echo -e "  ${RED}✗${NC} minio: $service_status ($node) [fail]"
@@ -118,7 +118,7 @@ done
 echo ""
 echo "Checking MinIO process..."
 for node in $TARGET; do
-  process_status=$(cmd "$node" "pgrep -a minio")
+  process_status=$(cmd_clean "$node" "pgrep -a minio")
   if [[ -n "$process_status" ]]; then
     echo -e "  ${GREEN}✓${NC} MinIO process running ($node) [pass]"
   else
@@ -164,7 +164,7 @@ for node in $TARGET; do
   
   # Configure mc (MinIO client) alias
   echo "  Configuring MinIO client..."
-  mc_config=$(cmd "$node" "mc alias set testminio http://127.0.0.1:$MINIO_API_PORT $MINIO_USER $MINIO_PASSWORD 2>&1")
+  mc_config=$(cmd_clean "$node" "mc alias set testminio http://127.0.0.1:$MINIO_API_PORT $MINIO_USER $MINIO_PASSWORD 2>&1")
   if [[ "$mc_config" == *"successfully"* ]] || [[ "$mc_config" == *"Added"* ]] || [[ -z "$mc_config" ]]; then
     echo -e "  ${GREEN}✓${NC} MinIO client configured [pass]"
   else
@@ -173,8 +173,8 @@ for node in $TARGET; do
   
   # Test server health endpoint using HTTP status code
   echo "  Checking server health..."
-  health_code=$(cmd "$node" "curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:$MINIO_API_PORT/minio/health/live")
-  if [[ "$health_code" == *"200"* ]]; then
+  health_code=$(cmd_value "$node" "curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:$MINIO_API_PORT/minio/health/live")
+  if [[ "$health_code" == "200" ]]; then
     echo -e "  ${GREEN}✓${NC} Server health endpoint accessible (HTTP 200) [pass]"
   else
     echo -e "  ${RED}✗${NC} Server health check failed: HTTP $health_code [fail]"
@@ -182,7 +182,7 @@ for node in $TARGET; do
   
   # Create a test bucket
   echo "  Creating test bucket..."
-  bucket_result=$(cmd "$node" "mc mb testminio/test-bucket 2>&1")
+  bucket_result=$(cmd_clean "$node" "mc mb testminio/test-bucket 2>&1")
   if [[ "$bucket_result" == *"Bucket created successfully"* ]] || [[ "$bucket_result" == *"created"* ]]; then
     echo -e "  ${GREEN}✓${NC} Bucket creation successful [pass]"
   else
@@ -191,7 +191,7 @@ for node in $TARGET; do
   
   # List buckets
   echo "  Listing buckets..."
-  list_result=$(cmd "$node" "mc ls testminio 2>&1")
+  list_result=$(cmd_clean "$node" "mc ls testminio 2>&1")
   if [[ "$list_result" == *"test-bucket"* ]]; then
     echo -e "  ${GREEN}✓${NC} Bucket listing successful [pass]"
   else
@@ -201,7 +201,7 @@ for node in $TARGET; do
   # Upload a test object
   echo "  Uploading test object..."
   cmd "$node" "echo 'Hello MinIO Test!' > /tmp/test-file.txt"
-  upload_result=$(cmd "$node" "mc cp /tmp/test-file.txt testminio/test-bucket/test-file.txt 2>&1")
+  upload_result=$(cmd_clean "$node" "mc cp /tmp/test-file.txt testminio/test-bucket/test-file.txt 2>&1")
   if [[ "$upload_result" == *"test-file.txt"* ]] || [[ -z "$upload_result" ]]; then
     echo -e "  ${GREEN}✓${NC} Object upload successful [pass]"
   else
@@ -210,7 +210,7 @@ for node in $TARGET; do
   
   # List objects in bucket
   echo "  Listing objects in bucket..."
-  objects_result=$(cmd "$node" "mc ls testminio/test-bucket 2>&1")
+  objects_result=$(cmd_clean "$node" "mc ls testminio/test-bucket 2>&1")
   if [[ "$objects_result" == *"test-file.txt"* ]]; then
     echo -e "  ${GREEN}✓${NC} Object listing successful [pass]"
   else
@@ -220,8 +220,8 @@ for node in $TARGET; do
   # Download the test object
   echo "  Downloading test object..."
   cmd "$node" "rm -f /tmp/downloaded-file.txt"
-  download_result=$(cmd "$node" "mc cp testminio/test-bucket/test-file.txt /tmp/downloaded-file.txt 2>&1")
-  content_check=$(cmd "$node" "cat /tmp/downloaded-file.txt 2>/dev/null")
+  download_result=$(cmd_clean "$node" "mc cp testminio/test-bucket/test-file.txt /tmp/downloaded-file.txt 2>&1")
+  content_check=$(cmd_clean "$node" "cat /tmp/downloaded-file.txt 2>/dev/null")
   if [[ "$content_check" == *"Hello MinIO Test!"* ]]; then
     echo -e "  ${GREEN}✓${NC} Object download successful [pass]"
   else
@@ -230,7 +230,7 @@ for node in $TARGET; do
   
   # Get object info/stat
   echo "  Getting object info..."
-  stat_result=$(cmd "$node" "mc stat testminio/test-bucket/test-file.txt 2>&1")
+  stat_result=$(cmd_clean "$node" "mc stat testminio/test-bucket/test-file.txt 2>&1")
   if [[ "$stat_result" == *"test-file.txt"* ]] || [[ "$stat_result" == *"Size"* ]]; then
     echo -e "  ${GREEN}✓${NC} Object stat successful [pass]"
   else

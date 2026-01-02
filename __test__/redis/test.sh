@@ -76,8 +76,8 @@ sleep 5
 echo "Checking systemd service status..."
 for node in $TARGET; do
   for server in "${!REDIS_SERVERS[@]}"; do
-    service_status=$(cmd "$node" "systemctl is-active $server")
-    if [[ "$service_status" == *"active"* ]]; then
+    service_status=$(cmd_value "$node" "systemctl is-active $server")
+    if [[ "$service_status" == "active" ]]; then
       echo -e "  ${GREEN}✓${NC} $server: active ($node) [pass]"
     else
       echo -e "  ${RED}✗${NC} $server: $service_status ($node) [fail]"
@@ -91,10 +91,9 @@ done
 # Check if Redis processes are running
 echo ""
 echo "Checking Redis processes..."
-for node in $TARGET; do
-  process_output=$(cmd "$node" "pgrep -c redis-server || echo 0")
-  # Strip node prefix (e.g., "testnode001: 2" -> "2")
-  process_count=$(echo "$process_output" | sed 's/^[^:]*: //' | tr -d '[:space:]')
+for node in $TEST_NODES; do
+  # Use cmd_value to get clean numeric output
+  process_count=$(cmd_value "$node" "pgrep -c redis-server || echo 0")
   expected_count=${#REDIS_SERVERS[@]}
   if [[ "$process_count" -ge "$expected_count" ]]; then
     echo -e "  ${GREEN}✓${NC} $process_count Redis processes running ($node) [pass]"
@@ -102,6 +101,7 @@ for node in $TARGET; do
     echo -e "  ${RED}✗${NC} Expected $expected_count processes, found $process_count ($node) [fail]"
   fi
 done
+
 
 
 # Check if Redis ports are listening
@@ -135,7 +135,7 @@ for node in $TARGET; do
     
     # Test PING command
     echo "  Testing PING command..."
-    ping_result=$(cmd "$node" "redis-cli -p $port PING")
+    ping_result=$(cmd_clean "$node" "redis-cli -p $port PING")
     if [[ "$ping_result" == *"PONG"* ]]; then
       echo -e "  ${GREEN}✓${NC} PING successful [pass]"
     else
@@ -144,7 +144,7 @@ for node in $TARGET; do
     
     # Test SET command
     echo "  Testing SET command..."
-    set_result=$(cmd "$node" "redis-cli -p $port SET testkey-$server 'hello-from-$server'")
+    set_result=$(cmd_clean "$node" "redis-cli -p $port SET testkey-$server 'hello-from-$server'")
     if [[ "$set_result" == *"OK"* ]]; then
       echo -e "  ${GREEN}✓${NC} SET operation successful [pass]"
     else
@@ -153,7 +153,7 @@ for node in $TARGET; do
     
     # Test GET command
     echo "  Testing GET command..."
-    get_result=$(cmd "$node" "redis-cli -p $port GET testkey-$server")
+    get_result=$(cmd_clean "$node" "redis-cli -p $port GET testkey-$server")
     if [[ "$get_result" == *"hello-from-$server"* ]]; then
       echo -e "  ${GREEN}✓${NC} GET operation successful [pass]"
     else
@@ -163,7 +163,7 @@ for node in $TARGET; do
     # Test INCR command
     echo "  Testing INCR command..."
     cmd "$node" "redis-cli -p $port SET counter 0" > /dev/null 2>&1
-    incr_result=$(cmd "$node" "redis-cli -p $port INCR counter")
+    incr_result=$(cmd_clean "$node" "redis-cli -p $port INCR counter")
     if [[ "$incr_result" == *"1"* ]]; then
       echo -e "  ${GREEN}✓${NC} INCR operation successful [pass]"
     else
@@ -172,7 +172,7 @@ for node in $TARGET; do
     
     # Test INFO command
     echo "  Testing INFO command..."
-    info_result=$(cmd "$node" "redis-cli -p $port INFO server | head -5")
+    info_result=$(cmd_clean "$node" "redis-cli -p $port INFO server | head -5")
     if [[ "$info_result" == *"redis_version"* ]]; then
       echo -e "  ${GREEN}✓${NC} INFO command successful [pass]"
     else
@@ -201,9 +201,8 @@ for node in $TARGET; do
   cmd "$node" "redis-cli -p 6379 SET isolation-test 'default-server'" > /dev/null 2>&1
   
   # Try to get it from the cache server (should not exist)
-  cache_output=$(cmd "$node" "redis-cli -p 6380 GET isolation-test")
-  # Strip node prefix and whitespace (e.g., "testnode001: (nil)" -> "(nil)")
-  cache_result=$(echo "$cache_output" | sed 's/^[^:]*: //' | tr -d '[:space:]')
+  # Use cmd_value to get clean output without node prefix
+  cache_result=$(cmd_value "$node" "redis-cli -p 6380 GET isolation-test")
   if [[ -z "$cache_result" ]] || [[ "$cache_result" == "nil" ]] || [[ "$cache_result" == "(nil)" ]]; then
     echo -e "  ${GREEN}✓${NC} Servers are properly isolated [pass]"
   else

@@ -17,6 +17,31 @@ cmd() {
   $NIX_INFRA fleet cmd -d "$WORK_DIR" --target="$1" "$2"
 }
 
+# Get command output with node prefix stripped and whitespace trimmed
+# Use for single values that need arithmetic or exact comparison
+# Example: count=$(cmd_value "$node" "pgrep -c redis-server || echo 0")
+cmd_value() {
+  local node="$1"
+  local command="$2"
+  local output
+  output=$(cmd "$node" "$command")
+  # Strip "nodename: " prefix and trim whitespace
+  echo "$output" | sed "s/^${node}: //" | tr -d '[:space:]'
+}
+
+# Get command output with node prefix stripped but preserving structure
+# Use for multi-line output or when whitespace matters
+# Example: config=$(cmd_clean "$node" "cat /etc/config")
+cmd_clean() {
+  local node="$1"
+  local command="$2"
+  local output
+  output=$(cmd "$node" "$command")
+  # Strip "nodename: " prefix from each line
+  echo "$output" | sed "s/^${node}: //"
+}
+
+
 printTime() {
   local _start=$1; local _end=$2; local _secs=$((_end-_start))
   printf '%02dh:%02dm:%02ds' $((_secs/3600)) $((_secs%3600/60)) $((_secs%60))

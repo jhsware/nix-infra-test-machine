@@ -68,8 +68,8 @@ sleep 5
 # Check if the systemd service is active
 echo "Checking systemd service status..."
 for node in $TARGET; do
-  service_status=$(cmd "$node" "systemctl is-active nginx")
-  if [[ "$service_status" == *"active"* ]]; then
+  service_status=$(cmd_value "$node" "systemctl is-active nginx")
+  if [[ "$service_status" == "active" ]]; then
     echo -e "  ${GREEN}✓${NC} nginx: active ($node) [pass]"
   else
     echo -e "  ${RED}✗${NC} nginx: $service_status ($node) [fail]"
@@ -83,7 +83,7 @@ done
 echo ""
 echo "Checking Nginx process..."
 for node in $TARGET; do
-  process_status=$(cmd "$node" "pgrep -a nginx | head -1")
+  process_status=$(cmd_clean "$node" "pgrep -a nginx | head -1")
   if [[ -n "$process_status" ]]; then
     echo -e "  ${GREEN}✓${NC} Nginx process running ($node) [pass]"
   else
@@ -129,7 +129,7 @@ for node in $TARGET; do
   
   # Test default virtual host - index page
   echo "  Testing default virtual host (index page)..."
-  index_response=$(cmd "$node" "curl -s http://127.0.0.1/")
+  index_response=$(cmd_clean "$node" "curl -s http://127.0.0.1/")
   if [[ "$index_response" == *"Nginx Test Page"* ]]; then
     echo -e "  ${GREEN}✓${NC} Index page served correctly [pass]"
   else
@@ -139,7 +139,7 @@ for node in $TARGET; do
   
   # Test health endpoint
   echo "  Testing health endpoint..."
-  health_response=$(cmd "$node" "curl -s http://127.0.0.1/health")
+  health_response=$(cmd_clean "$node" "curl -s http://127.0.0.1/health")
   if [[ "$health_response" == *"OK"* ]]; then
     echo -e "  ${GREEN}✓${NC} Health endpoint returned OK [pass]"
   else
@@ -149,8 +149,8 @@ for node in $TARGET; do
   
   # Test HTTP status code
   echo "  Testing HTTP status codes..."
-  status_code=$(cmd "$node" "curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1/")
-  if [[ "$status_code" == *"200"* ]]; then
+  status_code=$(cmd_value "$node" "curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1/")
+  if [[ "$status_code" == "200" ]]; then
     echo -e "  ${GREEN}✓${NC} HTTP 200 OK for index [pass]"
   else
     echo -e "  ${RED}✗${NC} Expected HTTP 200, got $status_code [fail]"
@@ -158,8 +158,8 @@ for node in $TARGET; do
   
   # Test 404 for non-existent path
   echo "  Testing 404 handling..."
-  not_found_code=$(cmd "$node" "curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1/nonexistent")
-  if [[ "$not_found_code" == *"404"* ]]; then
+  not_found_code=$(cmd_value "$node" "curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1/nonexistent")
+  if [[ "$not_found_code" == "404" ]]; then
     echo -e "  ${GREEN}✓${NC} HTTP 404 for non-existent path [pass]"
   else
     echo -e "  ${RED}✗${NC} Expected HTTP 404, got $not_found_code [fail]"
@@ -168,7 +168,7 @@ for node in $TARGET; do
   # Test nginx configuration syntax using the nginx binary from nix store
   echo "  Testing nginx configuration syntax..."
   # Find nginx binary from the running process and test config
-  config_test=$(cmd "$node" "NGINX_BIN=\$(readlink -f /proc/\$(pgrep -o nginx)/exe) && \$NGINX_BIN -t 2>&1")
+  config_test=$(cmd_clean "$node" "NGINX_BIN=\$(readlink -f /proc/\$(pgrep -o nginx)/exe) && \$NGINX_BIN -t 2>&1")
   if [[ "$config_test" == *"syntax is ok"* ]] || [[ "$config_test" == *"test is successful"* ]]; then
     echo -e "  ${GREEN}✓${NC} Nginx configuration syntax valid [pass]"
   else
@@ -179,8 +179,8 @@ for node in $TARGET; do
   # Test Host header routing (proxy.localhost virtual host)
   echo "  Testing virtual host routing..."
   # This will fail to connect since there's no backend, but we can check nginx handles it
-  proxy_code=$(cmd "$node" "curl -s -o /dev/null -w '%{http_code}' -H 'Host: proxy.localhost' http://127.0.0.1/ 2>/dev/null || echo '502'")
-  if [[ "$proxy_code" == *"502"* ]] || [[ "$proxy_code" == *"504"* ]]; then
+  proxy_code=$(cmd_value "$node" "curl -s -o /dev/null -w '%{http_code}' -H 'Host: proxy.localhost' http://127.0.0.1/ 2>/dev/null || echo '502'")
+  if [[ "$proxy_code" == "502" ]] || [[ "$proxy_code" == "504" ]]; then
     echo -e "  ${GREEN}✓${NC} Virtual host routing works (502/504 expected - no backend) [pass]"
   else
     echo -e "  ${GREEN}✓${NC} Virtual host routing returned $proxy_code [pass]"
@@ -188,7 +188,7 @@ for node in $TARGET; do
   
   # Test gzip compression is enabled
   echo "  Testing gzip compression..."
-  gzip_test=$(cmd "$node" "curl -s -H 'Accept-Encoding: gzip' -I http://127.0.0.1/ | grep -i 'Content-Encoding' || echo 'no-gzip'")
+  gzip_test=$(cmd_clean "$node" "curl -s -H 'Accept-Encoding: gzip' -I http://127.0.0.1/ | grep -i 'Content-Encoding' || echo 'no-gzip'")
   if [[ "$gzip_test" == *"gzip"* ]]; then
     echo -e "  ${GREEN}✓${NC} Gzip compression enabled [pass]"
   else
@@ -198,7 +198,7 @@ for node in $TARGET; do
   
   # Test server tokens are hidden (security)
   echo "  Testing server security headers..."
-  server_header=$(cmd "$node" "curl -s -I http://127.0.0.1/ | grep -i '^Server:' || echo 'Server: hidden'")
+  server_header=$(cmd_clean "$node" "curl -s -I http://127.0.0.1/ | grep -i '^Server:' || echo 'Server: hidden'")
   if [[ "$server_header" != *"nginx/"* ]]; then
     echo -e "  ${GREEN}✓${NC} Server version hidden [pass]"
   else

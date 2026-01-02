@@ -70,8 +70,8 @@ sleep 5
 # Check if the systemd service is active
 echo "Checking systemd service status..."
 for node in $TARGET; do
-  service_status=$(cmd "$node" "systemctl is-active mysql")
-  if [[ "$service_status" == *"active"* ]]; then
+  service_status=$(cmd_value "$node" "systemctl is-active mysql")
+  if [[ "$service_status" == "active" ]]; then
     echo -e "  ${GREEN}✓${NC} mysql: active ($node) [pass]"
   else
     echo -e "  ${RED}✗${NC} mysql: $service_status ($node) [fail]"
@@ -85,7 +85,7 @@ done
 echo ""
 echo "Checking MariaDB process..."
 for node in $TARGET; do
-  process_status=$(cmd "$node" "pgrep -a mariadbd || pgrep -a mysqld")
+  process_status=$(cmd_clean "$node" "pgrep -a mariadbd || pgrep -a mysqld")
   if [[ -n "$process_status" ]]; then
     echo -e "  ${GREEN}✓${NC} MariaDB process running ($node) [pass]"
   else
@@ -119,7 +119,7 @@ for node in $TARGET; do
   
   # Test connection
   echo "  Testing connection..."
-  conn_result=$(cmd "$node" "mysql -u root -e 'SELECT 1 as test;' 2>&1")
+  conn_result=$(cmd_clean "$node" "mysql -u root -e 'SELECT 1 as test;' 2>&1")
   if [[ "$conn_result" == *"1"* ]]; then
     echo -e "  ${GREEN}✓${NC} Connection successful [pass]"
   else
@@ -128,7 +128,7 @@ for node in $TARGET; do
   
   # Check if testdb was created
   echo "  Checking testdb database..."
-  db_check=$(cmd "$node" "mysql -u root -e 'SHOW DATABASES;' | grep testdb")
+  db_check=$(cmd_clean "$node" "mysql -u root -e 'SHOW DATABASES;' | grep testdb")
   if [[ "$db_check" == *"testdb"* ]]; then
     echo -e "  ${GREEN}✓${NC} Database 'testdb' exists [pass]"
   else
@@ -137,7 +137,7 @@ for node in $TARGET; do
   
   # Create a test table
   echo "  Creating test table..."
-  create_result=$(cmd "$node" "mysql -u root -D testdb -e 'CREATE TABLE IF NOT EXISTS test_table (id INT AUTO_INCREMENT PRIMARY KEY, name VARCHAR(100), value INT);' 2>&1")
+  create_result=$(cmd_clean "$node" "mysql -u root -D testdb -e 'CREATE TABLE IF NOT EXISTS test_table (id INT AUTO_INCREMENT PRIMARY KEY, name VARCHAR(100), value INT);' 2>&1")
   if [[ "$create_result" != *"ERROR"* ]]; then
     echo -e "  ${GREEN}✓${NC} Create table successful [pass]"
   else
@@ -146,7 +146,7 @@ for node in $TARGET; do
   
   # Insert a test record
   echo "  Inserting test record..."
-  insert_result=$(cmd "$node" "mysql -u root -D testdb -e \"INSERT INTO test_table (name, value) VALUES ('test', 42);\" 2>&1")
+  insert_result=$(cmd_clean "$node" "mysql -u root -D testdb -e \"INSERT INTO test_table (name, value) VALUES ('test', 42);\" 2>&1")
   if [[ "$insert_result" != *"ERROR"* ]]; then
     echo -e "  ${GREEN}✓${NC} Insert operation successful [pass]"
   else
@@ -156,7 +156,7 @@ for node in $TARGET; do
   
   # Query the test record
   echo "  Querying test record..."
-  query_result=$(cmd "$node" "mysql -u root -D testdb -e \"SELECT * FROM test_table WHERE name = 'test';\" 2>&1")
+  query_result=$(cmd_clean "$node" "mysql -u root -D testdb -e \"SELECT * FROM test_table WHERE name = 'test';\" 2>&1")
   if [[ "$query_result" == *"test"* ]] && [[ "$query_result" == *"42"* ]]; then
     echo -e "  ${GREEN}✓${NC} Query operation successful [pass]"
   else
@@ -165,7 +165,7 @@ for node in $TARGET; do
   
   # Test database listing
   echo "  Listing databases..."
-  db_list=$(cmd "$node" "mysql -u root -e 'SHOW DATABASES;' 2>&1")
+  db_list=$(cmd_clean "$node" "mysql -u root -e 'SHOW DATABASES;' 2>&1")
   if [[ "$db_list" == *"mysql"* ]] && [[ "$db_list" == *"information_schema"* ]]; then
     echo -e "  ${GREEN}✓${NC} Database listing successful [pass]"
   else
@@ -174,7 +174,7 @@ for node in $TARGET; do
   
   # Test user was created
   echo "  Checking testuser exists..."
-  user_check=$(cmd "$node" "mysql -u root -e \"SELECT User FROM mysql.user WHERE User='testuser';\" 2>&1")
+  user_check=$(cmd_clean "$node" "mysql -u root -e \"SELECT User FROM mysql.user WHERE User='testuser';\" 2>&1")
   if [[ "$user_check" == *"testuser"* ]]; then
     echo -e "  ${GREEN}✓${NC} User 'testuser' exists [pass]"
   else

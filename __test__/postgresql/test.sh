@@ -67,8 +67,8 @@ sleep 5
 # Check if the systemd service is active
 echo "Checking systemd service status..."
 for node in $TARGET; do
-  service_status=$(cmd "$node" "systemctl is-active postgresql")
-  if [[ "$service_status" == *"active"* ]]; then
+  service_status=$(cmd_value "$node" "systemctl is-active postgresql")
+  if [[ "$service_status" == "active" ]]; then
     echo -e "  ${GREEN}✓${NC} postgresql: active ($node) [pass]"
   else
     echo -e "  ${RED}✗${NC} postgresql: $service_status ($node) [fail]"
@@ -82,7 +82,7 @@ done
 echo ""
 echo "Checking PostgreSQL process..."
 for node in $TARGET; do
-  process_status=$(cmd "$node" "pgrep -a postgres")
+  process_status=$(cmd_clean "$node" "pgrep -a postgres")
   if [[ -n "$process_status" ]]; then
     echo -e "  ${GREEN}✓${NC} PostgreSQL process running ($node) [pass]"
   else
@@ -116,7 +116,7 @@ for node in $TARGET; do
   
   # Test connection
   echo "  Testing connection..."
-  conn_result=$(cmd "$node" "sudo -u postgres psql -c 'SELECT 1 as test;' 2>&1")
+  conn_result=$(cmd_clean "$node" "sudo -u postgres psql -c 'SELECT 1 as test;' 2>&1")
   if [[ "$conn_result" == *"1"* ]]; then
     echo -e "  ${GREEN}✓${NC} Connection successful [pass]"
   else
@@ -125,7 +125,7 @@ for node in $TARGET; do
   
   # Check if testdb was created
   echo "  Checking testdb database..."
-  db_check=$(cmd "$node" "sudo -u postgres psql -l | grep testdb")
+  db_check=$(cmd_clean "$node" "sudo -u postgres psql -l | grep testdb")
   if [[ "$db_check" == *"testdb"* ]]; then
     echo -e "  ${GREEN}✓${NC} Database 'testdb' exists [pass]"
   else
@@ -134,7 +134,7 @@ for node in $TARGET; do
   
   # Create a test table
   echo "  Creating test table..."
-  create_result=$(cmd "$node" "sudo -u postgres psql -d testdb -c 'CREATE TABLE IF NOT EXISTS test_table (id SERIAL PRIMARY KEY, name VARCHAR(100), value INTEGER);' 2>&1")
+  create_result=$(cmd_clean "$node" "sudo -u postgres psql -d testdb -c 'CREATE TABLE IF NOT EXISTS test_table (id SERIAL PRIMARY KEY, name VARCHAR(100), value INTEGER);' 2>&1")
   if [[ "$create_result" == *"CREATE TABLE"* ]] || [[ "$create_result" == *"already exists"* ]] || [[ -z "$create_result" ]]; then
     echo -e "  ${GREEN}✓${NC} Create table successful [pass]"
   else
@@ -143,7 +143,7 @@ for node in $TARGET; do
   
   # Insert a test record
   echo "  Inserting test record..."
-  insert_result=$(cmd "$node" "sudo -u postgres psql -d testdb -c \"INSERT INTO test_table (name, value) VALUES ('test', 42);\" 2>&1")
+  insert_result=$(cmd_clean "$node" "sudo -u postgres psql -d testdb -c \"INSERT INTO test_table (name, value) VALUES ('test', 42);\" 2>&1")
   if [[ "$insert_result" == *"INSERT"* ]]; then
     echo -e "  ${GREEN}✓${NC} Insert operation successful [pass]"
   else
@@ -152,7 +152,7 @@ for node in $TARGET; do
   
   # Query the test record
   echo "  Querying test record..."
-  query_result=$(cmd "$node" "sudo -u postgres psql -d testdb -c 'SELECT * FROM test_table WHERE name = '\\''test'\\'';' 2>&1")
+  query_result=$(cmd_clean "$node" "sudo -u postgres psql -d testdb -c 'SELECT * FROM test_table WHERE name = '\\''test'\\'';' 2>&1")
   if [[ "$query_result" == *"test"* ]] && [[ "$query_result" == *"42"* ]]; then
     echo -e "  ${GREEN}✓${NC} Query operation successful [pass]"
   else
@@ -161,7 +161,7 @@ for node in $TARGET; do
   
   # Test database listing
   echo "  Listing databases..."
-  db_list=$(cmd "$node" "sudo -u postgres psql -c '\\l' 2>&1")
+  db_list=$(cmd_clean "$node" "sudo -u postgres psql -c '\\l' 2>&1")
   if [[ "$db_list" == *"postgres"* ]]; then
     echo -e "  ${GREEN}✓${NC} Database listing successful [pass]"
   else

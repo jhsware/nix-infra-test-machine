@@ -70,8 +70,8 @@ sleep 5
 # Check if the systemd service is active
 echo "Checking systemd service status..."
 for node in $TARGET; do
-  service_status=$(cmd "$node" "systemctl is-active mongodb")
-  if [[ "$service_status" == *"active"* ]]; then
+  service_status=$(cmd_value "$node" "systemctl is-active mongodb")
+  if [[ "$service_status" == "active" ]]; then
     echo -e "  ${GREEN}✓${NC} mongodb: active ($node) [pass]"
   else
     echo -e "  ${RED}✗${NC} mongodb: $service_status ($node) [fail]"
@@ -85,7 +85,7 @@ done
 echo ""
 echo "Checking MongoDB process..."
 for node in $TARGET; do
-  process_status=$(cmd "$node" "pgrep -a mongod")
+  process_status=$(cmd_clean "$node" "pgrep -a mongod")
   if [[ -n "$process_status" ]]; then
     echo -e "  ${GREEN}✓${NC} MongoDB process running ($node) [pass]"
   else
@@ -119,7 +119,7 @@ for node in $TARGET; do
   
   # Insert a test document
   echo "  Inserting test document..."
-  insert_result=$(cmd "$node" "mongosh --port $MONGODB_PORT --quiet --eval 'db.test.insertOne({name: \"test\", value: 42})'")
+  insert_result=$(cmd_clean "$node" "mongosh --port $MONGODB_PORT --quiet --eval 'db.test.insertOne({name: \"test\", value: 42})'")
   if [[ "$insert_result" == *"acknowledged"* ]] || [[ "$insert_result" == *"insertedId"* ]]; then
     echo -e "  ${GREEN}✓${NC} Insert operation successful [pass]"
   else
@@ -128,7 +128,7 @@ for node in $TARGET; do
   
   # Query the test document
   echo "  Querying test document..."
-  query_result=$(cmd "$node" "mongosh --port $MONGODB_PORT --quiet --eval 'db.test.findOne({name: \"test\"})'")
+  query_result=$(cmd_clean "$node" "mongosh --port $MONGODB_PORT --quiet --eval 'db.test.findOne({name: \"test\"})'")
   if [[ "$query_result" == *"value"* ]] && [[ "$query_result" == *"42"* ]]; then
     echo -e "  ${GREEN}✓${NC} Query operation successful [pass]"
   else
@@ -137,7 +137,7 @@ for node in $TARGET; do
   
   # Test database listing
   echo "  Listing databases..."
-  db_list=$(cmd "$node" "mongosh --port $MONGODB_PORT --quiet --eval 'db.adminCommand({listDatabases: 1}).databases.map(d => d.name)'")
+  db_list=$(cmd_clean "$node" "mongosh --port $MONGODB_PORT --quiet --eval 'db.adminCommand({listDatabases: 1}).databases.map(d => d.name)'")
   if [[ "$db_list" == *"admin"* ]]; then
     echo -e "  ${GREEN}✓${NC} Database listing successful [pass]"
   else

@@ -72,8 +72,8 @@ sleep 15
 echo ""
 echo "Checking systemd service status..."
 for node in $TARGET; do
-  service_status=$(cmd "$node" "systemctl is-active podman-n8n-pod")
-  if [[ "$service_status" == *"active"* ]]; then
+  service_status=$(cmd_value "$node" "systemctl is-active podman-n8n-pod")
+  if [[ "$service_status" == "active" ]]; then
     echo -e "  ${GREEN}✓${NC} podman-n8n-pod: active ($node) [pass]"
   else
     echo -e "  ${RED}✗${NC} podman-n8n-pod: $service_status ($node) [fail]"
@@ -87,7 +87,7 @@ done
 echo ""
 echo "Checking container status..."
 for node in $TARGET; do
-  container_status=$(cmd "$node" "podman ps --filter name=n8n-pod --format '{{.Names}} {{.Status}}'")
+  container_status=$(cmd_clean "$node" "podman ps --filter name=n8n-pod --format '{{.Names}} {{.Status}}'")
   if [[ "$container_status" == *"n8n-pod"* ]]; then
     echo -e "  ${GREEN}✓${NC} Container running: $container_status ($node) [pass]"
   else
@@ -130,9 +130,9 @@ for node in $TARGET; do
   
   # Test n8n HTTP response
   echo "  Testing n8n HTTP response..."
-  http_code=$(cmd "$node" "curl -s -o /dev/null -w '%{http_code}' http://localhost:5678/ 2>/dev/null || echo '000'")
+  http_code=$(cmd_value "$node" "curl -s -o /dev/null -w '%{http_code}' http://localhost:5678/ 2>/dev/null || echo '000'")
   # n8n may return 200 or redirect to setup/login
-  if [[ "$http_code" == *"200"* ]] || [[ "$http_code" == *"302"* ]] || [[ "$http_code" == *"303"* ]]; then
+  if [[ "$http_code" == "200" ]] || [[ "$http_code" == "302" ]] || [[ "$http_code" == "303" ]]; then
     echo -e "  ${GREEN}✓${NC} HTTP response code: $http_code [pass]"
   else
     echo -e "  ${RED}✗${NC} HTTP response code: $http_code [fail]"
@@ -140,7 +140,7 @@ for node in $TARGET; do
   
   # Test n8n healthcheck endpoint
   echo "  Testing n8n healthcheck endpoint..."
-  healthcheck=$(cmd "$node" "curl -s http://localhost:5678/healthz 2>/dev/null")
+  healthcheck=$(cmd_clean "$node" "curl -s http://localhost:5678/healthz 2>/dev/null")
   if [[ "$healthcheck" == *"ok"* ]] || [[ "$healthcheck" == *"healthy"* ]] || [[ -n "$healthcheck" ]]; then
     echo -e "  ${GREEN}✓${NC} n8n healthcheck responded: $healthcheck [pass]"
   else
@@ -149,7 +149,7 @@ for node in $TARGET; do
   
   # Test n8n API types endpoint (should list available node types)
   echo "  Testing n8n API endpoint..."
-  api_response=$(cmd "$node" "curl -s http://localhost:5678/api/v1/node-types 2>/dev/null | head -c 200")
+  api_response=$(cmd_clean "$node" "curl -s http://localhost:5678/api/v1/node-types 2>/dev/null | head -c 200")
   if [[ "$api_response" == *"data"* ]] || [[ "$api_response" == *"type"* ]]; then
     echo -e "  ${GREEN}✓${NC} n8n API is responding [pass]"
   else
@@ -158,8 +158,8 @@ for node in $TARGET; do
   
   # Check n8n data directory exists on host
   echo "  Testing n8n data directory..."
-  data_exists=$(cmd "$node" "test -d /var/lib/n8n-pod && echo 'exists' || echo 'missing'")
-  if [[ "$data_exists" == *"exists"* ]]; then
+  data_exists=$(cmd_value "$node" "test -d /var/lib/n8n-pod && echo 'exists' || echo 'missing'")
+  if [[ "$data_exists" == "exists" ]]; then
     echo -e "  ${GREEN}✓${NC} n8n data directory exists [pass]"
   else
     echo -e "  ${YELLOW}!${NC} n8n data directory not found [fail]"
@@ -167,8 +167,8 @@ for node in $TARGET; do
   
   # Check SQLite database file exists (inside container volume)
   echo "  Testing SQLite database file..."
-  sqlite_exists=$(cmd "$node" "test -f /var/lib/n8n-pod/database.sqlite && echo 'exists' || echo 'missing'")
-  if [[ "$sqlite_exists" == *"exists"* ]]; then
+  sqlite_exists=$(cmd_value "$node" "test -f /var/lib/n8n-pod/database.sqlite && echo 'exists' || echo 'missing'")
+  if [[ "$sqlite_exists" == "exists" ]]; then
     echo -e "  ${GREEN}✓${NC} SQLite database file exists [pass]"
   else
     echo -e "  ${YELLOW}!${NC} SQLite database file not found (may be created on first use) [fail]"
@@ -176,7 +176,7 @@ for node in $TARGET; do
   
   # Check container logs for errors
   echo "  Checking container logs for errors..."
-  error_logs=$(cmd "$node" "podman logs n8n-pod 2>&1 | grep -i 'error\|fatal' | tail -5 || echo 'none'")
+  error_logs=$(cmd_clean "$node" "podman logs n8n-pod 2>&1 | grep -i 'error\|fatal' | tail -5 || echo 'none'")
   if [[ "$error_logs" == *"none"* ]] || [[ -z "$error_logs" ]]; then
     echo -e "  ${GREEN}✓${NC} No errors in container logs [pass]"
   else
@@ -185,8 +185,8 @@ for node in $TARGET; do
   
   # Check container health
   echo "  Checking container process..."
-  n8n_process=$(cmd "$node" "podman exec n8n-pod pgrep -f 'n8n' || echo 'not_found'")
-  if [[ "$n8n_process" != *"not_found"* ]] && [[ -n "$n8n_process" ]]; then
+  n8n_process=$(cmd_clean "$node" "podman exec n8n-pod pgrep -f 'n8n' || echo 'not_found'")
+  if [[ "$n8n_process" != "not_found" ]] && [[ -n "$n8n_process" ]]; then
     echo -e "  ${GREEN}✓${NC} n8n process is running inside container [pass]"
   else
     echo -e "  ${RED}✗${NC} n8n process not found in container [fail]"

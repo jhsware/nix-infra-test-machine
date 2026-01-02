@@ -90,11 +90,11 @@ for node in $TARGET; do
   for service in "${SERVICES[@]}"; do
     # Skip nextcloud-setup as it's a oneshot service
     if [[ "$service" == "nextcloud-setup" ]]; then
-      service_result=$(cmd "$node" "systemctl is-active $service 2>/dev/null || echo 'inactive'")
+      service_result=$(cmd_value "$node" "systemctl is-active $service 2>/dev/null || echo 'inactive'")
       # For oneshot services, check if it completed successfully
-      if [[ "$service_result" == *"inactive"* ]]; then
+      if [[ "$service_result" == "inactive" ]]; then
         # Check if it exited successfully
-        exit_status=$(cmd "$node" "systemctl show -p ExecMainStatus $service | cut -d= -f2")
+        exit_status=$(cmd_value "$node" "systemctl show -p ExecMainStatus $service | cut -d= -f2")
         if [[ "$exit_status" == "0" ]]; then
           echo -e "  ${GREEN}✓${NC} $service: completed successfully [pass]"
         else
@@ -107,8 +107,8 @@ for node in $TARGET; do
         echo -e "  ${GREEN}✓${NC} $service: $service_result [pass]"
       fi
     else
-      service_status=$(cmd "$node" "systemctl is-active $service")
-      if [[ "$service_status" == *"active"* ]]; then
+      service_status=$(cmd_value "$node" "systemctl is-active $service")
+      if [[ "$service_status" == "active" ]]; then
         echo -e "  ${GREEN}✓${NC} $service: active [pass]"
       else
         echo -e "  ${RED}✗${NC} $service: $service_status [fail]"
@@ -132,8 +132,8 @@ for node in $TARGET; do
   echo "Checking service dependencies on $node..."
   
   # Check PostgreSQL started before nextcloud-setup
-  pg_start=$(cmd "$node" "systemctl show -p ActiveEnterTimestampMonotonic postgresql --value")
-  nc_setup_start=$(cmd "$node" "systemctl show -p ActiveEnterTimestampMonotonic nextcloud-setup --value")
+  pg_start=$(cmd_value "$node" "systemctl show -p ActiveEnterTimestampMonotonic postgresql --value")
+  nc_setup_start=$(cmd_value "$node" "systemctl show -p ActiveEnterTimestampMonotonic nextcloud-setup --value")
   
   if [[ -n "$pg_start" ]] && [[ -n "$nc_setup_start" ]] && [[ "$pg_start" -lt "$nc_setup_start" ]]; then
     echo -e "  ${GREEN}✓${NC} PostgreSQL started before nextcloud-setup [pass]"
@@ -142,7 +142,7 @@ for node in $TARGET; do
   fi
   
   # Check Redis started before nextcloud-setup
-  redis_start=$(cmd "$node" "systemctl show -p ActiveEnterTimestampMonotonic redis-nextcloud --value")
+  redis_start=$(cmd_value "$node" "systemctl show -p ActiveEnterTimestampMonotonic redis-nextcloud --value")
   
   if [[ -n "$redis_start" ]] && [[ -n "$nc_setup_start" ]] && [[ "$redis_start" -lt "$nc_setup_start" ]]; then
     echo -e "  ${GREEN}✓${NC} Redis started before nextcloud-setup [pass]"
@@ -151,7 +151,7 @@ for node in $TARGET; do
   fi
   
   # Check nextcloud-setup completed before phpfpm-nextcloud
-  phpfpm_start=$(cmd "$node" "systemctl show -p ActiveEnterTimestampMonotonic phpfpm-nextcloud --value")
+  phpfpm_start=$(cmd_value "$node" "systemctl show -p ActiveEnterTimestampMonotonic phpfpm-nextcloud --value")
   
   if [[ -n "$nc_setup_start" ]] && [[ -n "$phpfpm_start" ]] && [[ "$nc_setup_start" -lt "$phpfpm_start" ]]; then
     echo -e "  ${GREEN}✓${NC} nextcloud-setup completed before phpfpm-nextcloud [pass]"
@@ -160,7 +160,7 @@ for node in $TARGET; do
   fi
   
   # Check phpfpm-nextcloud started before nginx
-  nginx_start=$(cmd "$node" "systemctl show -p ActiveEnterTimestampMonotonic nginx --value")
+  nginx_start=$(cmd_value "$node" "systemctl show -p ActiveEnterTimestampMonotonic nginx --value")
   
   if [[ -n "$phpfpm_start" ]] && [[ -n "$nginx_start" ]] && [[ "$phpfpm_start" -lt "$nginx_start" ]]; then
     echo -e "  ${GREEN}✓${NC} phpfpm-nextcloud started before nginx [pass]"
@@ -218,9 +218,9 @@ for node in $TARGET; do
   
   # Test Nextcloud HTTP response
   echo "  Testing Nextcloud HTTP response..."
-  http_code=$(cmd "$node" "curl -s -o /dev/null -w '%{http_code}' http://localhost/ 2>/dev/null || echo '000'")
+  http_code=$(cmd_value "$node" "curl -s -o /dev/null -w '%{http_code}' http://localhost/ 2>/dev/null || echo '000'")
   # Nextcloud may redirect to login or return 200
-  if [[ "$http_code" == *"200"* ]] || [[ "$http_code" == *"302"* ]] || [[ "$http_code" == *"303"* ]]; then
+  if [[ "$http_code" == "200" ]] || [[ "$http_code" == "302" ]] || [[ "$http_code" == "303" ]]; then
     echo -e "  ${GREEN}✓${NC} HTTP response code: $http_code [pass]"
   else
     echo -e "  ${RED}✗${NC} HTTP response code: $http_code [fail]"
@@ -228,7 +228,7 @@ for node in $TARGET; do
   
   # Test Nextcloud login page
   echo "  Testing Nextcloud login page..."
-  login_page=$(cmd "$node" "curl -s -L http://localhost/login 2>/dev/null | head -c 2000")
+  login_page=$(cmd_clean "$node" "curl -s -L http://localhost/login 2>/dev/null | head -c 2000")
   if [[ "$login_page" == *"Nextcloud"* ]] || [[ "$login_page" == *"login"* ]]; then
     echo -e "  ${GREEN}✓${NC} Nextcloud login page is accessible [pass]"
   else
@@ -238,7 +238,7 @@ for node in $TARGET; do
   
   # Test Nextcloud status endpoint
   echo "  Testing Nextcloud status endpoint..."
-  status_response=$(cmd "$node" "curl -s http://localhost/status.php 2>/dev/null")
+  status_response=$(cmd_clean "$node" "curl -s http://localhost/status.php 2>/dev/null")
   if [[ "$status_response" == *"installed"* ]] && [[ "$status_response" == *"true"* ]]; then
     echo -e "  ${GREEN}✓${NC} Nextcloud is installed (status.php) [pass]"
     # Parse version if possible
@@ -253,7 +253,7 @@ for node in $TARGET; do
   
   # Test PostgreSQL database connection
   echo "  Testing PostgreSQL database..."
-  db_check=$(cmd "$node" "sudo -u postgres psql -l | grep nextcloud")
+  db_check=$(cmd_clean "$node" "sudo -u postgres psql -l | grep nextcloud")
   if [[ "$db_check" == *"nextcloud"* ]]; then
     echo -e "  ${GREEN}✓${NC} Nextcloud database exists in PostgreSQL [pass]"
   else
@@ -262,7 +262,7 @@ for node in $TARGET; do
   
   # Test Redis connection
   echo "  Testing Redis connection..."
-  redis_check=$(cmd "$node" "redis-cli -p 6379 PING 2>/dev/null")
+  redis_check=$(cmd_clean "$node" "redis-cli -p 6379 PING 2>/dev/null")
   if [[ "$redis_check" == *"PONG"* ]]; then
     echo -e "  ${GREEN}✓${NC} Redis is responding [pass]"
   else
@@ -271,7 +271,7 @@ for node in $TARGET; do
   
   # Test Nextcloud OCC command
   echo "  Testing Nextcloud OCC command..."
-  occ_check=$(cmd "$node" "sudo -u nextcloud /run/current-system/sw/bin/nextcloud-occ status 2>/dev/null")
+  occ_check=$(cmd_clean "$node" "sudo -u nextcloud /run/current-system/sw/bin/nextcloud-occ status 2>/dev/null")
   if [[ "$occ_check" == *"installed: true"* ]]; then
     echo -e "  ${GREEN}✓${NC} Nextcloud OCC reports installed [pass]"
   else
@@ -280,7 +280,7 @@ for node in $TARGET; do
   
   # Test admin user exists
   echo "  Testing admin user exists..."
-  admin_check=$(cmd "$node" "sudo -u nextcloud /run/current-system/sw/bin/nextcloud-occ user:list 2>/dev/null | grep admin")
+  admin_check=$(cmd_clean "$node" "sudo -u nextcloud /run/current-system/sw/bin/nextcloud-occ user:list 2>/dev/null | grep admin")
   if [[ "$admin_check" == *"admin"* ]]; then
     echo -e "  ${GREEN}✓${NC} Admin user exists [pass]"
   else
