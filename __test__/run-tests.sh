@@ -34,6 +34,7 @@ Options:
   --env=<file>        Environment file (default: .env)
   --no-teardown       Don't tear down after test
   --target=<nodes>    Target node(s) for commands
+  --nixos-version=<version> Override version
 
 Examples:
   # Run the full test cycle
@@ -81,6 +82,10 @@ for i in "$@"; do
     ;;
     --port-mapping=*)
     PORT_MAPPING="${i#*=}"
+    shift
+    ;;
+    --nixos-version=*)
+    NIXOS_VERSION="${i#*=}"
     shift
     ;;
     *)
@@ -241,9 +246,11 @@ if [ "$CMD" = "upgrade" ]; then
     echo "Usage: $0 upgrade --env=$ENV [node1 node2 ...]"
     exit 1
   fi
-  $NIX_INFRA fleet cmd -d "$WORK_DIR" --target="$REST" "nixos-rebuild switch --upgrade"
+  $NIX_INFRA fleet upgrade-nixos -d "$WORK_DIR" --batch --env="$ENV" --nixos-version="$NIXOS_VERSION" \
+    --target="$REST"
   exit 0
 fi
+
 
 # ============================================================================
 # Interactive Commands
