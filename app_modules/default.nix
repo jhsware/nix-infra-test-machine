@@ -11,5 +11,6 @@
     ./nginx
     ./nextcloud
     ./home-assistant
+    ./n8n
   ];
 }
