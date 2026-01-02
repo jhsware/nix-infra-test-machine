@@ -3,6 +3,7 @@ SCRIPT_DIR=$(dirname "$(readlink -f "$0")")
 WORK_DIR=${WORK_DIR:-$(dirname "$SCRIPT_DIR")}
 NIX_INFRA=${NIX_INFRA:-"nix-infra"}
 NIXOS_VERSION=${NIXOS_VERSION:-"25.05"}
+MACHINE_TYPE=${MACHINE_TYPE:-"cpx22"}
 SSH_KEY="nixinfra-machine"
 SSH_EMAIL=${SSH_EMAIL:-your-email@example.com}
 ENV=${ENV:-.env}
@@ -35,6 +36,7 @@ Options:
   --no-teardown       Don't tear down after test
   --target=<nodes>    Target node(s) for commands
   --nixos-version=<version> Override version
+  --machine-type=<type> Override machine type
 
 Examples:
   # Run the full test cycle
@@ -86,6 +88,10 @@ for i in "$@"; do
     ;;
     --nixos-version=*)
     NIXOS_VERSION="${i#*=}"
+    shift
+    ;;
+    --machine-type=*)
+    MACHINE_TYPE="${i#*=}"
     shift
     ;;
     *)
@@ -340,7 +346,7 @@ EOF
       --nixos-version="$NIXOS_VERSION" \
       --ssh-key=$SSH_KEY \
       --location=hel1 \
-      --machine-type=cpx22 \
+      --machine-type="$MACHINE_TYPE" \
       --node-names="$TARGET"
 
   cleanupOnFail $? "WARNING: Provisioning failed! Cleaning up..."
