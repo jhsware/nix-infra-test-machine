@@ -561,11 +561,12 @@ in
           Enable the firewall bouncer to automatically block malicious IPs.
           
           The bouncer fetches decisions from the CrowdSec API and applies
-          them to the system firewall (iptables/nftables).
+          them to the system firewall (iptables/nftables). Available in
+          nixpkgs as pkgs.crowdsec-firewall-bouncer starting from NixOS 25.11.
           
-          NOTE: Requires the bouncer.package option to be set to a valid
-          crowdsec-firewall-bouncer package. This package may not be
-          available in all NixOS versions.
+          When using nftables mode (default), the module creates declarative
+          nftables tables that integrate properly with NixOS's firewall and
+          survive system rebuilds.
           
           [NIS2 COMPLIANCE]
           Article 21(2)(b) - Incident Handling: Provides automated incident
@@ -576,6 +577,7 @@ in
         '';
         default = false;
       };
+
 
       communityBlocklists = lib.mkOption {
         type = lib.types.bool;
@@ -729,36 +731,17 @@ in
         description = ''
           CrowdSec firewall bouncer package to use.
           
-          Set to null if the package is not available in your NixOS version.
-          The bouncer package may be added to nixpkgs in future releases.
+          The package is available in nixpkgs as pkgs.crowdsec-firewall-bouncer
+          starting from NixOS 25.11.
           
-          For current versions, you can use an external flake:
-          https://codeberg.org/kampka/nix-flake-crowdsec
-          
-          Example usage with flake:
-          ```nix
-          {
-            inputs.crowdsec.url = "git+https://codeberg.org/kampka/nix-flake-crowdsec";
-            
-            outputs = { self, nixpkgs, crowdsec, ... }: {
-              nixosConfigurations.myhost = nixpkgs.lib.nixosSystem {
-                modules = [
-                  ({ pkgs, ... }: {
-                    infrastructure.crowdsec = {
-                      enable = true;
-                      features.firewallBouncer = true;
-                      bouncer.package = crowdsec.packages.''${pkgs.system}.crowdsec-firewall-bouncer;
-                    };
-                  })
-                ];
-              };
-            };
-          }
-          ```
+          Set to null to disable the bouncer even when features.firewallBouncer
+          is enabled (useful for testing detection without blocking).
         '';
-        default = null;
+        default = pkgs.crowdsec-firewall-bouncer or null;
+        defaultText = lib.literalExpression "pkgs.crowdsec-firewall-bouncer";
         example = lib.literalExpression "pkgs.crowdsec-firewall-bouncer";
       };
+
 
       mode = lib.mkOption {
         type = lib.types.enum [ "iptables" "nftables" "ipset" ];
@@ -886,12 +869,15 @@ in
           message = ''
             CrowdSec firewall bouncer is enabled but no package is configured.
             
-            Either:
-            1. Set infrastructure.crowdsec.features.firewallBouncer = false
-            2. Set infrastructure.crowdsec.bouncer.package = pkgs.crowdsec-firewall-bouncer
-               (requires the package to be available, e.g., from an external flake)
+            The bouncer package should be available as pkgs.crowdsec-firewall-bouncer
+            on NixOS 25.11+. If using an older NixOS version, you may need to:
+            
+            1. Upgrade to NixOS 25.11+
+            2. Set infrastructure.crowdsec.features.firewallBouncer = false
+            3. Provide the package from an external source
           '';
         }
+
         {
           assertion = acquisitions != [];
           message = ''

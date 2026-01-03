@@ -31,15 +31,20 @@ if [ "$CMD" = "teardown" ]; then
   $NIX_INFRA fleet cmd -d "$WORK_DIR" --target="$TARGET" \
     'systemctl stop crowdsec 2>/dev/null || true'
   
-  # Clean up data directories
+  # Clean up data directories on target nodes
   $NIX_INFRA fleet cmd -d "$WORK_DIR" --target="$TARGET" \
     'rm -rf /var/lib/crowdsec'
   $NIX_INFRA fleet cmd -d "$WORK_DIR" --target="$TARGET" \
     'rm -rf /var/lib/crowdsec-firewall-bouncer 2>/dev/null || true'
   
+  # Clean up declarative configuration directories on target nodes
+  $NIX_INFRA fleet cmd -d "$WORK_DIR" --target="$TARGET" \
+    'rm -rf /etc/crowdsec 2>/dev/null || true'
+  
   echo "CrowdSec teardown complete"
   return 0
 fi
+
 
 # ============================================================================
 # Test Setup
