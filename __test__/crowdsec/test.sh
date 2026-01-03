@@ -322,6 +322,136 @@ for node in $TARGET; do
   fi
 done
 
+# ============================================================================
+# Functional Tests - Machine Registration
+# ============================================================================
+
+echo ""
+echo "Step 9: Testing Machine Registration..."
+echo ""
+
+for node in $TARGET; do
+  echo "Checking machine registration on $node..."
+  
+  # Check if local machine is registered with LAPI
+  echo "  Checking registered machines..."
+  machines_result=$(cmd_clean "$node" "cscli machines list 2>&1 || true")
+  if [[ "$machines_result" == *"testnode"* ]] || [[ "$machines_result" == *"localhost"* ]] || [[ "$machines_result" == *"validated"* ]]; then
+    echo -e "  ${GREEN}✓${NC} Local machine is registered with LAPI [pass]"
+  else
+    echo -e "  ${YELLOW}!${NC} Machine registration status: $machines_result [warning]"
+  fi
+done
+
+# ============================================================================
+# Functional Tests - Acquisition Sources
+# ============================================================================
+
+echo ""
+echo "Step 10: Testing Acquisition Sources..."
+echo ""
+
+for node in $TARGET; do
+  echo "Checking acquisition sources on $node..."
+  
+  # Check if acquisitions are configured (SSH journal should be present)
+  echo "  Checking acquisition configuration..."
+  acq_file=$(cmd_clean "$node" "cat /var/lib/crowdsec/config/acquisitions.yaml 2>&1 || true")
+  if [[ "$acq_file" == *"journalctl"* ]] || [[ "$acq_file" == *"sshd"* ]] || [[ "$acq_file" == *"source"* ]]; then
+    echo -e "  ${GREEN}✓${NC} Acquisition sources configured [pass]"
+  else
+    echo -e "  ${YELLOW}!${NC} Acquisition config: $acq_file [warning]"
+  fi
+  
+  # Check cscli metrics for acquisition stats (shows if sources are being read)
+  echo "  Checking acquisition metrics..."
+  acq_metrics=$(cmd_clean "$node" "cscli metrics show acquisitions 2>&1 || true")
+  if [[ "$acq_metrics" == *"journalctl"* ]] || [[ "$acq_metrics" == *"file"* ]] || [[ "$acq_metrics" == *"Source"* ]] || [[ "$acq_metrics" == *"Lines"* ]]; then
+    echo -e "  ${GREEN}✓${NC} Acquisition metrics available [pass]"
+  else
+    # Metrics might not be available if prometheus is disabled
+    echo -e "  ${YELLOW}!${NC} Acquisition metrics: $acq_metrics [info]"
+  fi
+done
+
+# ============================================================================
+# Functional Tests - Database and Config Files
+# ============================================================================
+
+echo ""
+echo "Step 11: Testing Database and Configuration Files..."
+echo ""
+
+for node in $TARGET; do
+  echo "Checking persistence on $node..."
+  
+  # Check if SQLite database exists
+  echo "  Checking CrowdSec database..."
+  db_check=$(cmd_clean "$node" "test -f /var/lib/crowdsec/data/crowdsec.db && echo 'exists' || echo 'missing'")
+  if [[ "$db_check" == *"exists"* ]]; then
+    echo -e "  ${GREEN}✓${NC} SQLite database exists [pass]"
+  else
+    echo -e "  ${RED}✗${NC} SQLite database missing [fail]"
+  fi
+  
+  # Check if config directory exists with required files
+  echo "  Checking configuration files..."
+  config_check=$(cmd_clean "$node" "ls /var/lib/crowdsec/config/ 2>&1 || true")
+  if [[ "$config_check" == *"config.yaml"* ]] && [[ "$config_check" == *"profiles.yaml"* ]]; then
+    echo -e "  ${GREEN}✓${NC} Configuration files present [pass]"
+  else
+    echo -e "  ${YELLOW}!${NC} Config directory contents: $config_check [warning]"
+  fi
+  
+  # Check if hub directory exists
+  echo "  Checking hub directory..."
+  hub_check=$(cmd_clean "$node" "test -d /var/lib/crowdsec/hub && echo 'exists' || echo 'missing'")
+  if [[ "$hub_check" == *"exists"* ]]; then
+    echo -e "  ${GREEN}✓${NC} Hub directory exists [pass]"
+  else
+    echo -e "  ${YELLOW}!${NC} Hub directory status: $hub_check [warning]"
+  fi
+done
+
+# ============================================================================
+# Functional Tests - Service Restart
+# ============================================================================
+
+echo ""
+echo "Step 12: Testing Service Restart..."
+echo ""
+
+for node in $TARGET; do
+  echo "Testing service restart on $node..."
+  
+  # Restart the service
+  echo "  Restarting CrowdSec service..."
+  restart_result=$(cmd_clean "$node" "systemctl restart crowdsec 2>&1 && echo 'restart_ok' || echo 'restart_failed'")
+  if [[ "$restart_result" == *"restart_ok"* ]]; then
+    echo -e "  ${GREEN}✓${NC} Service restart command successful [pass]"
+  else
+    echo -e "  ${RED}✗${NC} Service restart failed: $restart_result [fail]"
+  fi
+  
+  # Wait for service to come back up
+  echo "  Waiting for service to recover..."
+  wait_for_service "$node" "crowdsec" --timeout=60
+  wait_for_port "$node" "$CROWDSEC_API_PORT" --timeout=30
+  
+  # Verify service is active after restart
+  echo "  Verifying service is active after restart..."
+  assert_service_active "$node" "crowdsec"
+  
+  # Verify LAPI is responsive after restart
+  echo "  Verifying LAPI responds after restart..."
+  lapi_after=$(cmd_clean "$node" "cscli lapi status 2>&1 || true")
+  if [[ "$lapi_after" == *"successfully interact"* ]] || [[ "$lapi_after" == *"You can successfully"* ]]; then
+    echo -e "  ${GREEN}✓${NC} LAPI responsive after restart [pass]"
+  else
+    echo -e "  ${YELLOW}!${NC} LAPI status after restart: $lapi_after [warning]"
+  fi
+done
+
 
 # ============================================================================
 # NIS2 Compliance Summary
