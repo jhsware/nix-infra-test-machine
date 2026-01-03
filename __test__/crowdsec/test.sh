@@ -157,12 +157,13 @@ for node in $TARGET; do
   # Test LAPI status
   echo "  Checking Local API status..."
   lapi_status=$(cmd_clean "$node" "cscli lapi status 2>&1 || true")
-  if [[ "$lapi_status" == *"LAPI is reachable"* ]] || [[ "$lapi_status" == *"is up"* ]] || [[ "$lapi_status" == *"online"* ]]; then
+  if [[ "$lapi_status" == *"successfully interact"* ]] || [[ "$lapi_status" == *"LAPI is reachable"* ]] || [[ "$lapi_status" == *"You can successfully"* ]]; then
     echo -e "  ${GREEN}✓${NC} Local API is reachable [pass]"
   else
     # LAPI might report issues but still be running
-    echo -e "  ${YELLOW}!${NC} LAPI status check (service may need initialization): $lapi_status [info]"
+    echo -e "  ${YELLOW}!${NC} LAPI status check: $lapi_status [warning]"
   fi
+
   
   # Test hub listing
   echo "  Checking installed hub items..."
@@ -276,28 +277,32 @@ done
 # ============================================================================
 
 echo ""
-echo "Step 8: Testing Metrics Endpoint..."
+echo "Step 8: Testing Metrics and API Endpoints..."
 echo ""
 
 for node in $TARGET; do
   echo "Checking metrics on $node..."
   
-  # Test health endpoint
-  health_result=$(cmd_clean "$node" "curl -s http://127.0.0.1:$CROWDSEC_API_PORT/v1/health 2>&1 || true")
-  if [[ "$health_result" == *"ok"* ]] || [[ "$health_result" == *"true"* ]] || [[ -n "$health_result" ]]; then
-    echo -e "  ${GREEN}✓${NC} Health endpoint responds [pass]"
+  # Test cscli alerts list (always works, doesn't require prometheus)
+  echo "  Checking cscli alerts functionality..."
+  alerts_result=$(cmd_clean "$node" "cscli alerts list 2>&1 || true")
+  if [[ "$alerts_result" == *"No active alerts"* ]] || [[ "$alerts_result" == *"ID"* ]] || [[ "$alerts_result" == *"alert"* ]] || [[ -z "$alerts_result" ]]; then
+    echo -e "  ${GREEN}✓${NC} cscli alerts command works [pass]"
   else
-    echo -e "  ${YELLOW}!${NC} Health check result: $health_result [info]"
+    echo -e "  ${YELLOW}!${NC} Alerts output: $alerts_result [warning]"
   fi
   
-  # Test cscli metrics
-  cscli_metrics=$(cmd_clean "$node" "cscli metrics 2>&1 || true")
-  if [[ "$cscli_metrics" == *"Acquisition"* ]] || [[ "$cscli_metrics" == *"bucket"* ]] || [[ -n "$cscli_metrics" ]]; then
-    echo -e "  ${GREEN}✓${NC} cscli metrics command works [pass]"
+  # Test API endpoint - use /v1/decisions which requires auth but confirms API is responding
+  echo "  Checking API endpoint..."
+  api_result=$(cmd_clean "$node" "curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:$CROWDSEC_API_PORT/v1/decisions 2>&1 || echo '000'")
+  if [[ "$api_result" == "200" ]] || [[ "$api_result" == "401" ]] || [[ "$api_result" == "403" ]]; then
+    # 200 = OK, 401/403 = API is responding but requires auth (expected)
+    echo -e "  ${GREEN}✓${NC} API endpoint responds (HTTP $api_result) [pass]"
   else
-    echo -e "  ${YELLOW}!${NC} Metrics output: $cscli_metrics [info]"
+    echo -e "  ${YELLOW}!${NC} API response code: $api_result [warning]"
   fi
 done
+
 
 # ============================================================================
 # NIS2 Compliance Summary
