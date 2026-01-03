@@ -168,11 +168,12 @@ for node in $TARGET; do
   # Test hub listing
   echo "  Checking installed hub items..."
   hub_result=$(cmd_clean "$node" "cscli hub list 2>&1 || true")
-  if [[ "$hub_result" == *"COLLECTIONS"* ]] || [[ "$hub_result" == *"collection"* ]] || [[ -n "$hub_result" ]]; then
+  if [[ "$hub_result" == *"COLLECTIONS"* ]] || [[ "$hub_result" == *"PARSERS"* ]] || [[ "$hub_result" == *"SCENARIOS"* ]]; then
     echo -e "  ${GREEN}✓${NC} Hub listing works [pass]"
   else
     echo -e "  ${YELLOW}!${NC} Hub listing output: $hub_result [warning]"
   fi
+
   
   # Test collections listing
   echo "  Checking installed collections..."
@@ -186,20 +187,22 @@ for node in $TARGET; do
   # Test parsers listing  
   echo "  Checking installed parsers..."
   parsers_result=$(cmd_clean "$node" "cscli parsers list 2>&1 || true")
-  if [[ "$parsers_result" == *"sshd"* ]] || [[ "$parsers_result" == *"syslog"* ]] || [[ -n "$parsers_result" ]]; then
+  if [[ "$parsers_result" == *"sshd"* ]] || [[ "$parsers_result" == *"syslog"* ]] || [[ "$parsers_result" == *"crowdsecurity"* ]]; then
     echo -e "  ${GREEN}✓${NC} Parsers installed [pass]"
   else
-    echo -e "  ${YELLOW}!${NC} Parsers may still be installing [info]"
+    echo -e "  ${YELLOW}!${NC} Parsers may still be installing: $parsers_result [warning]"
   fi
+
   
   # Test scenarios listing
   echo "  Checking installed scenarios..."
   scenarios_result=$(cmd_clean "$node" "cscli scenarios list 2>&1 || true")
-  if [[ "$scenarios_result" == *"ssh"* ]] || [[ "$scenarios_result" == *"bf"* ]] || [[ -n "$scenarios_result" ]]; then
+  if [[ "$scenarios_result" == *"ssh"* ]] || [[ "$scenarios_result" == *"bf"* ]] || [[ "$scenarios_result" == *"crowdsecurity"* ]]; then
     echo -e "  ${GREEN}✓${NC} Scenarios installed [pass]"
   else
-    echo -e "  ${YELLOW}!${NC} Scenarios may still be installing [info]"
+    echo -e "  ${YELLOW}!${NC} Scenarios may still be installing: $scenarios_result [warning]"
   fi
+
 done
 
 # ============================================================================
@@ -240,10 +243,24 @@ for node in $TARGET; do
     echo -e "  ${YELLOW}!${NC} Decision may not be visible yet [info]"
   fi
   
-  # Remove the test decision
+  # Remove the test decision and verify removal
   echo "  Removing test decision..."
   remove_result=$(cmd_clean "$node" "cscli decisions delete --ip 192.0.2.1 2>&1 || true")
-  echo -e "  ${GREEN}✓${NC} Test decision cleanup attempted [pass]"
+  if [[ "$remove_result" == *"decision"* ]] || [[ "$remove_result" == *"deleted"* ]] || [[ "$remove_result" == *"removed"* ]]; then
+    echo -e "  ${GREEN}✓${NC} Decision delete command executed [pass]"
+  else
+    echo -e "  ${YELLOW}!${NC} Decision delete result: $remove_result [warning]"
+  fi
+  
+  # Verify the decision was actually removed
+  echo "  Verifying decision was removed..."
+  verify_removed=$(cmd_clean "$node" "cscli decisions list 2>&1 || true")
+  if [[ "$verify_removed" != *"192.0.2.1"* ]]; then
+    echo -e "  ${GREEN}✓${NC} Decision successfully removed from database [pass]"
+  else
+    echo -e "  ${YELLOW}!${NC} Decision may still be present: $verify_removed [warning]"
+  fi
+
   
   echo ""
 done
@@ -286,11 +303,13 @@ for node in $TARGET; do
   # Test cscli alerts list (always works, doesn't require prometheus)
   echo "  Checking cscli alerts functionality..."
   alerts_result=$(cmd_clean "$node" "cscli alerts list 2>&1 || true")
-  if [[ "$alerts_result" == *"No active alerts"* ]] || [[ "$alerts_result" == *"ID"* ]] || [[ "$alerts_result" == *"alert"* ]] || [[ -z "$alerts_result" ]]; then
+  # Valid responses: "No active alerts", table with headers (ID, value, etc.), or empty table
+  if [[ "$alerts_result" == *"No active alerts"* ]] || [[ "$alerts_result" == *"ID"* ]] || [[ "$alerts_result" == *"Source"* ]] || [[ "$alerts_result" == *"Reason"* ]]; then
     echo -e "  ${GREEN}✓${NC} cscli alerts command works [pass]"
   else
-    echo -e "  ${YELLOW}!${NC} Alerts output: $alerts_result [warning]"
+    echo -e "  ${YELLOW}!${NC} Alerts output unexpected: $alerts_result [warning]"
   fi
+
   
   # Test API endpoint - use /v1/decisions which requires auth but confirms API is responding
   echo "  Checking API endpoint..."
